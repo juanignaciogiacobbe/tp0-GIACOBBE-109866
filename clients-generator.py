@@ -24,6 +24,8 @@ compose_content += "      - PYTHONUNBUFFERED=1\n"
 compose_content += "      - LOGGING_LEVEL=DEBUG\n"
 compose_content += "    networks:\n"
 compose_content += "      - testing_net\n\n"
+compose_content += "    volumes:\n"
+compose_content += "      - ./server/config.ini:/config/config.ini\n\n"
 
 for i in range(1, clients_num + 1):
     compose_content += f"  client{i}:\n"
