@@ -11,7 +11,7 @@ services:
       - testing_net
 
     volumes:
-      - ./server/config.ini:/config/config.ini
+      - ./server/config.ini:/server/config.ini
 
   client1:
     container_name: client1
