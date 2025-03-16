@@ -10,6 +10,7 @@ class Server:
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
         self._client_sockets = []
+        self._server_socket.settimeout(1)
 
         # Handle SIGTERM signal
         signal.signal(signal.SIGTERM, self.handle_signal)
