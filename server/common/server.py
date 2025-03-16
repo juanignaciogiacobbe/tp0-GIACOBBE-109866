@@ -25,7 +25,12 @@ class Server:
         """
 
         while True:
-            client_sock = self.__accept_new_connection()
+            try:
+                client_sock = self.__accept_new_connection()
+            except socket.timeout:
+                continue
+            
+                
             self._client_sockets.append(client_sock)
             self.__handle_client_connection(client_sock)
 
