@@ -2,6 +2,18 @@ import socket
 import logging
 import signal
 import sys
+import threading
+
+from common.utils import store_bets
+
+class Bet:
+    def __init__(self, agency, first_name, last_name, document, birthdate, number):
+        self.agency = agency
+        self.first_name = first_name
+        self.last_name = last_name
+        self.document = document
+        self.birthdate = birthdate
+        self.number = number
 
 class Server:
     def __init__(self, port, listen_backlog):
@@ -32,7 +44,7 @@ class Server:
             
                 
             self._client_sockets.append(client_sock)
-            self.__handle_client_connection(client_sock)
+            threading.Thread(target=self.__handle_client_connection, args=(client_sock,)).start()
 
     def __handle_client_connection(self, client_sock):
         """
@@ -42,16 +54,81 @@ class Server:
         client socket will also be closed
         """
         try:
-            # TODO: Modify the receive to avoid short-reads
-            msg = client_sock.recv(1024).rstrip().decode('utf-8')
-            addr = client_sock.getpeername()
-            logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {msg}')
-            # TODO: Modify the send to avoid short-writes
-            client_sock.send("{}\n".format(msg).encode('utf-8'))
+            bets = []
+
+            while True:
+                msg = self.__receive_message(client_sock)
+                if msg is None:
+                    break  
+
+                addr = client_sock.getpeername()
+                bet = self.__process_bet(msg)
+                if bet:
+                    bets.append(bet)
+                    logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {bet}')
+
+
+                response = f"action: apuesta_enviada | result: success | dni: {bet.document} | numero: {bet.number}\n"
+                self.__send_message(client_sock, response)
+
+            if bets:
+                store_bets(bets)
+                logging.info("action: apuesta_almacenada | result: success | bets_count: %d", len(bets))
+
         except OSError as e:
             logging.error("action: receive_message | result: fail | error: {e}")
         finally:
             client_sock.close()
+
+    def __receive_message(self, client_sock):
+        msg = ''
+        while True:
+            chunk = client_sock.recv(1024).decode('utf-8')
+            if not chunk:
+                break
+            msg += chunk
+            if msg.endswith('\n'):
+                break
+
+        if not msg:
+            return None
+
+        message_parts = msg.strip().split('|')
+        message_dict = {}
+
+        for part in message_parts:
+            if '=' in part:
+                key, value = part.split('=')
+                message_dict[key] = value
+            else:
+                logging.warning(f"action: receive_message | result: fail | error: invalid part format: {part}")
+        
+        return message_dict
+
+    def __process_bet(self, msg):
+        try:
+            bet = Bet(
+                agency="Agency X",
+                first_name=msg['NOMBRE'],
+                last_name=msg['APELLIDO'],
+                document=msg['DOCUMENTO'],
+                birthdate=msg['NACIMIENTO'],
+                number=msg['NUMERO']
+            )
+            logging.info(f"action: bet_fields | first_name: {bet.first_name} | last_name: {bet.last_name} | "
+                     f"document: {bet.document} | birthdate: {bet.birthdate} | number: {bet.number}")
+            
+            return bet
+        except KeyError as e:
+            logging.error(f"action: process_bet | result: fail | error: Missing key {e}")
+            return None
+
+    def __send_message(self, client_sock, message):
+        total_written = 0
+        message_len = len(message)
+        while total_written < message_len:
+            n = client_sock.send(message[total_written:].encode('utf-8'))
+            total_written += n
 
     def handle_signal(self, signum, frame):
         logging.info('action: close_clients_conn | result: in_progress')
