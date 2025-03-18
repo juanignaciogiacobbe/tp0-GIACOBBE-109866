@@ -115,8 +115,10 @@ class Server:
                 birthdate=msg['NACIMIENTO'],
                 number=msg['NUMERO']
             )
-            logging.info(f"action: bet_fields | first_name: {bet.first_name} | last_name: {bet.last_name} | "
-                     f"document: {bet.document} | birthdate: {bet.birthdate} | number: {bet.number}")
+
+            logging.info(f"action: bet_fields | result: success | first_name: {bet.first_name} | "
+                     f"last_name: {bet.last_name} | document: {bet.document} | "
+                     f"birthdate: {bet.birthdate} | number: {bet.number}")
             
             return bet
         except KeyError as e:
