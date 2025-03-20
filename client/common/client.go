@@ -1,8 +1,6 @@
 package common
 
 import (
-	"bufio"
-	"fmt"
 	"net"
 	"os"
 	"os/signal"
@@ -61,14 +59,9 @@ func (c *Client) createClientSocket() error {
 }
 
 func (c *Client) sendMessage() error {
-	message := fmt.Sprintf("NOMBRE=%v|APELLIDO=%v|DOCUMENTO=%v|NACIMIENTO=%v|NUMERO=%v\n",
-		c.config.Nombre,
-		c.config.Apellido,
-		c.config.Documento,
-		c.config.Nacimiento,
-		c.config.Numero,
-	)
-	data := []byte(message)
+	bet := newBet("1", c.config.Nombre, c.config.Apellido, c.config.Documento, c.config.Nacimiento, c.config.Numero)
+
+	data := bet.toBytes()
 
 	totalWritten := 0
 	messageLen := len(data)
@@ -82,16 +75,8 @@ func (c *Client) sendMessage() error {
 		totalWritten += n
 	}
 
-	msg, err := bufio.NewReader(c.conn).ReadString('\n')
-
-	if err != nil {
-		log.Errorf("action: receive_message | result: fail | client_id: %v | error: %v", c.config.ID, err)
-		return err
-	}
-
 	log.Infof("action: send_bet | result: success | dni: %v | numero: %v", c.config.Documento, c.config.Numero)
 
-	log.Infof("action: receive_message | result: success | client_id: %v | msg: %v", c.config.ID, msg)
 	return nil
 }
 
@@ -112,15 +97,12 @@ func (c *Client) StartClientLoop() {
 		return
 	}
 
-	for msgID := 1; msgID <= c.config.LoopAmount; msgID++ {
-		err := c.sendMessage()
-		if err != nil {
-			log.Errorf("action: send_bet | result: fail | client_id: %v | error: %v", c.config.ID, err)
-			continue
-		}
-
-		time.Sleep(c.config.LoopPeriod)
+	err = c.sendMessage()
+	if err != nil {
+		log.Errorf("action: send_bet | result: fail | client_id: %v | error: %v", c.config.ID, err)
 	}
+
+	time.Sleep(c.config.LoopPeriod)
 
 	c.conn.Close()
 
