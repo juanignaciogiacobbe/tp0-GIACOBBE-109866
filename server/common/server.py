@@ -4,7 +4,9 @@ import signal
 import sys
 import threading
 
-from common.utils import store_bets
+from common.utils import store_bets, Bet
+
+U8_SIZE = 1
 
 class Bet:
     def __init__(self, agency, first_name, last_name, document, birthdate, number):
@@ -55,21 +57,12 @@ class Server:
         """
         try:
             bets = []
+            bet = self.__receive_message(client_sock)
 
-            while True:
-                msg = self.__receive_message(client_sock)
-                if msg is None:
-                    break  
-
+            if bet:
                 addr = client_sock.getpeername()
-                bet = self.__process_bet(msg)
-                if bet:
-                    bets.append(bet)
-                    logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {bet}')
-
-
-                response = f"action: apuesta_enviada | result: success | dni: {bet.document} | numero: {bet.number}\n"
-                self.__send_message(client_sock, response)
+                bets.append(bet)
+                logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {bet}')
 
             if bets:
                 store_bets(bets)
@@ -81,56 +74,27 @@ class Server:
             client_sock.close()
 
     def __receive_message(self, client_sock):
-        msg = ''
-        while True:
-            chunk = client_sock.recv(1024).decode('utf-8')
-            if not chunk:
-                break
-            msg += chunk
-            if msg.endswith('\n'):
-                break
+        bet_fields = ['agency', 'first_name', 'last_name', 'document', 'birthdate', 'number']
+        bet_values = {}
+        buffer = b''
 
-        if not msg:
-            return None
+        while bet_fields:
+            data = client_sock.recv(1024)
+            buffer += data
 
-        message_parts = msg.strip().split('|')
-        message_dict = {}
+            while len(buffer) >= U8_SIZE:
+                len_data = int.from_bytes(buffer[:U8_SIZE], byteorder='big')
+                buffer = buffer[U8_SIZE:]
 
-        for part in message_parts:
-            if '=' in part:
-                key, value = part.split('=')
-                message_dict[key] = value
-            else:
-                logging.warning(f"action: receive_message | result: fail | error: invalid part format: {part}")
+                if len(buffer) < len_data:
+                    break
+
+                field_data, buffer = buffer[:len_data], buffer[len_data:]
+                field_name = bet_fields.pop(0) 
+                bet_values[field_name] = field_data.decode('utf-8')
         
-        return message_dict
+        return Bet(**bet_values)
 
-    def __process_bet(self, msg):
-        try:
-            bet = Bet(
-                agency="Agency X",
-                first_name=msg['NOMBRE'],
-                last_name=msg['APELLIDO'],
-                document=msg['DOCUMENTO'],
-                birthdate=msg['NACIMIENTO'],
-                number=msg['NUMERO']
-            )
-
-            logging.info(f"action: bet_fields | result: success | first_name: {bet.first_name} | "
-                     f"last_name: {bet.last_name} | document: {bet.document} | "
-                     f"birthdate: {bet.birthdate} | number: {bet.number}")
-            
-            return bet
-        except KeyError as e:
-            logging.error(f"action: process_bet | result: fail | error: Missing key {e}")
-            return None
-
-    def __send_message(self, client_sock, message):
-        total_written = 0
-        message_len = len(message)
-        while total_written < message_len:
-            n = client_sock.send(message[total_written:].encode('utf-8'))
-            total_written += n
 
     def handle_signal(self, signum, frame):
         logging.info('action: close_clients_conn | result: in_progress')
