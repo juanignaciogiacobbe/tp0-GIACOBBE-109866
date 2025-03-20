@@ -66,7 +66,7 @@ class Server:
 
             if bets:
                 store_bets(bets)
-                logging.info("action: apuesta_almacenada | result: success | bets_count: %d", len(bets))
+                logging.info("action: apuesta_almacenada | result: success | dni: %d | numero: %d", bet.document, bet.number)
 
         except OSError as e:
             logging.error("action: receive_message | result: fail | error: {e}")

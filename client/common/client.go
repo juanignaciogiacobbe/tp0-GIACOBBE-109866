@@ -75,7 +75,7 @@ func (c *Client) sendMessage() error {
 		totalWritten += n
 	}
 
-	log.Infof("action: send_bet | result: success | dni: %v | numero: %v", c.config.Documento, c.config.Numero)
+	log.Infof("action: apuesta_enviada | result: success | dni: %v | numero: %v", c.config.Documento, c.config.Numero)
 
 	return nil
 }
