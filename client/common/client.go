@@ -1,6 +1,9 @@
 package common
 
 import (
+	"bufio"
+	"encoding/csv"
+	"fmt"
 	"net"
 	"os"
 	"os/signal"
@@ -58,7 +61,40 @@ func (c *Client) createClientSocket() error {
 	return nil
 }
 
+func (c *Client) LoadBetsFromFile() ([]Bet, error) {
+	filePath := "./agency.csv"
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open file %v: %v", filePath, err)
+	}
+	defer file.Close()
+
+	var bets []Bet
+	reader := csv.NewReader(bufio.NewReader(file))
+	for {
+		record, err := reader.Read()
+		if err != nil {
+			break
+		}
+
+		if len(record) < 5 {
+			continue
+		}
+
+		bet := newBet(c.config.ID, record[0], record[1], record[2], record[3], record[4])
+		bets = append(bets, bet)
+	}
+
+	return bets, nil
+}
+
 func (c *Client) sendMessage() error {
+	bets, err := c.LoadBetsFromFile()
+	if err != nil {
+		log.Errorf("action: load_bets | result: fail | client_id: %v | error: %v", c.config.ID, err)
+		return err
+	}
+	log.Infof("action: load_bets | result: success | bets: %v", len(bets))
 	bet := newBet("1", c.config.Nombre, c.config.Apellido, c.config.Documento, c.config.Nacimiento, c.config.Numero)
 
 	data := bet.toBytes()
