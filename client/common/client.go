@@ -1,9 +1,6 @@
 package common
 
 import (
-	"bufio"
-	"encoding/csv"
-	"fmt"
 	"net"
 	"os"
 	"os/signal"
@@ -22,6 +19,7 @@ type ClientConfig struct {
 	LoopAmount     int
 	LoopPeriod     time.Duration
 	MaxBatchAmount int
+	BatchReader    *BatchReader
 
 	Nombre     string
 	Apellido   string
@@ -62,63 +60,77 @@ func (c *Client) createClientSocket() error {
 	return nil
 }
 
-func (c *Client) LoadBetsFromFile() ([]Bet, error) {
-	filePath := "./agency.csv"
-	file, err := os.Open(filePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open file %v: %v", filePath, err)
-	}
-	defer file.Close()
-
-	var bets []Bet
-	reader := csv.NewReader(bufio.NewReader(file))
-	for {
-		record, err := reader.Read()
+func (c *Client) sendBatch(len int, batch []byte) error {
+	for len > 0 {
+		n, err := c.conn.Write(batch)
 		if err != nil {
-			break
+			return nil
 		}
 
-		if len(record) < 5 {
-			continue
-		}
-
-		bet := newBet(c.config.ID, record[0], record[1], record[2], record[3], record[4])
-		bets = append(bets, bet)
+		batch = batch[n:]
+		len -= n
 	}
-
-	return bets, nil
+	return nil
 }
 
 func (c *Client) sendMessage() error {
-	bets, err := c.LoadBetsFromFile()
+	batchReader, err := newBatchReader(c.config.MaxBatchAmount, c.config.ID)
 	if err != nil {
-		log.Errorf("action: load_bets | result: fail | client_id: %v | error: %v", c.config.ID, err)
-		return err
+		log.Criticalf(
+			"action: read_file | result: fail | agency_id: %v | error: %v",
+			c.config.ID,
+			err,
+		)
 	}
-	log.Infof("action: load_bets | result: success | bets: %v", len(bets))
-	bet := newBet("1", c.config.Nombre, c.config.Apellido, c.config.Documento, c.config.Nacimiento, c.config.Numero)
 
-	data := bet.toBytes()
+	c.config.BatchReader = batchReader
+	batchNumber := 0
 
-	maxBatchAmount := c.config.MaxBatchAmount
-
-	log.Infof("action: load_bets | result: success | batch: %v", maxBatchAmount)
-
-	totalWritten := 0
-	messageLen := len(data)
-
-	for totalWritten < messageLen {
-		n, err := c.conn.Write(data[totalWritten:])
+	for {
+		batch, err := c.config.BatchReader.ReadBatch()
 		if err != nil {
-			log.Errorf("action: send_bet | result: fail | client_id: %v | error: %v", c.config.ID, err)
+			log.Criticalf(
+				"action: read_file | result: fail | agency_id: %v | error: %v",
+				c.config.ID,
+				err,
+			)
 			return err
 		}
-		totalWritten += n
+
+		if len(batch) == 0 {
+			break
+		}
+
+		batchNumber++
+		batch = addBatchBytesLen(batch)
+		batchLen := len(batch)
+
+		sendError := c.sendBatch(batchLen, batch)
+		if sendError != nil {
+			log.Criticalf(`action: apuestas_enviadas | result: fail | bytes: %v | batch: %v | error: %v`, batchLen, batchNumber, err)
+			return sendError
+		}
+
+		// waits for server response
+		c.conn.SetReadDeadline(time.Now().Add(10 * time.Millisecond))
+		c.conn.Read(make([]byte, 1))
+		log.Infof(`action: apuestas_enviadas | result: success | bytes: %v | batch: %v`, batchLen, batchNumber)
 	}
 
-	log.Infof("action: apuesta_enviada | result: success | dni: %v | numero: %v", c.config.Documento, c.config.Numero)
+	c.config.BatchReader.Close()
+	c.config.BatchReader = nil
 
 	return nil
+}
+
+func addBatchBytesLen(batch []byte) []byte {
+	batchSize := uint16(len(batch))
+	batchWithLength := []byte{
+		byte(batchSize >> 8),
+		byte(batchSize & 0xff),
+	}
+
+	return append(batchWithLength, batch...)
 }
 
 // StartClientLoop Send messages to the client until some time threshold is met
