@@ -17,10 +17,11 @@ var log = logging.MustGetLogger("log")
 
 // ClientConfig Configuration used by the client
 type ClientConfig struct {
-	ID            string
-	ServerAddress string
-	LoopAmount    int
-	LoopPeriod    time.Duration
+	ID             string
+	ServerAddress  string
+	LoopAmount     int
+	LoopPeriod     time.Duration
+	MaxBatchAmount int
 
 	Nombre     string
 	Apellido   string
@@ -98,6 +99,10 @@ func (c *Client) sendMessage() error {
 	bet := newBet("1", c.config.Nombre, c.config.Apellido, c.config.Documento, c.config.Nacimiento, c.config.Numero)
 
 	data := bet.toBytes()
+
+	maxBatchAmount := c.config.MaxBatchAmount
+
+	log.Infof("action: load_bets | result: success | batch: %v", maxBatchAmount)
 
 	totalWritten := 0
 	messageLen := len(data)
