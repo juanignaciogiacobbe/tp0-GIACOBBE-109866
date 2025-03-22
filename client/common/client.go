@@ -19,6 +19,8 @@ type ClientConfig struct {
 	LoopAmount    int
 	LoopPeriod    time.Duration
 
+	MaxBatchAmount int
+
 	Nombre     string
 	Apellido   string
 	Documento  string
