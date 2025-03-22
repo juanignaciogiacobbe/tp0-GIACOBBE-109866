@@ -51,7 +51,8 @@ for i in range(1, clients_num + 1):
     compose_content += "    depends_on:\n"
     compose_content += "      - server\n\n"
     compose_content += "    volumes:\n"
-    compose_content += "      - ./client/config.yaml:/config.yaml \n\n"
+    compose_content += "      - ./client/config.yaml:/config.yaml \n"
+    compose_content += f"      - ./.data/agency-{i}.csv:/agency.csv \n\n"
 
 compose_content += "networks:\n"
 compose_content += "  testing_net:\n"
