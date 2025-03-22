@@ -45,62 +45,76 @@ class Server:
         """
         addr = client_sock.getpeername()
 
-        try:
-            bet = self.__receive_bet(client_sock)
-            logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {bet}')
+        while True:
+            try:
+                batch = self.__receive_batch(client_sock)
+                if len(batch) == 0:
+                    logging.info(f'action: finish_batches_reading | result: success | ip: {addr[0]}')
+                    break
 
-            store_bets([bet])
-            self.__send_ack(client_sock)
-            logging.info(f'action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}')
+                logging.info(f'action: receive_batch | result: success | ip: {addr[0]} | batch_len: {len(batch)}')
 
-        except OSError as e:
-            logging.error(f'action: receive_message | result: fail | client_ip: {addr[0]} | error: {str(e)}')
-        finally:
-            client_sock.close()
+                store_bets(batch)
+                self.__send_ack(client_sock)
+                logging.info(f'action: apuesta_recibida | result: success | cantidad: {len(batch)}')
 
-    def __receive_bet(self, client_sock):
+            except Exception as e:
+                logging.error(f'action: apuesta_recibida | result: fail | error: {e}')
+                break
+
+        client_sock.close()
+    
+    
+    def __receive_batch(self, client_sock):
         """
-        Receives a serialized bet from a client and deserializes it into a Bet object.
+        Receives a batch of serialized bets from a client and deserializes them into a list of Bet objects.
 
-        This function reads data from the client socket in chunks, processes it to 
-        extract the bet fields (agency, first_name, last_name, document, birthdate, number),
-        and stores them in a dictionary. Once all the fields have been received, it 
-        creates and returns a `Bet` object using the values from the dictionary.
-
-        The function expects the data to be sent in a format where each field is preceded by 
-        its length (encoded as an unsigned 8-bit integer). It uses this information to correctly 
-        deserialize the data.
+        This function ensures that all the data for a single batch is received from the client, even if it is sent
+        in multiple chunks (short reads). The method accumulates the data in a buffer and processes it once the
+        full batch is received.
 
         Args:
-            client_sock (socket.socket): The client socket from which the bet data is received.
+            client_sock (socket.socket): The client socket from which the batch data is received.
 
         Returns:
-            Bet: A `Bet` object containing the deserialized fields (agency, first_name, last_name, 
-                document, birthdate, and number).
+            list: A list of `Bet` objects deserialized from the incoming data.
 
         Raises:
-            ValueError: If the received data cannot be properly parsed or the expected format is not met.
+            ValueError: If the received data cannot be properly parsed or if the expected format is not met.
         """
         bet_fields = ['agency', 'first_name', 'last_name', 'document', 'birthdate', 'number']
         bet_values = {}
-        buffer = b''
+        buffer = b''  
+        batch = []
 
-        while bet_fields:
-            data = client_sock.recv(1024)
+        while True:
+            # Receive data in chunks (short read handling)
+            data = client_sock.recv(8192)  # max 8kB
+            if not data:
+                break  
+
             buffer += data
 
             while len(buffer) >= U8_SIZE:
                 len_data = int.from_bytes(buffer[:U8_SIZE], byteorder='big')
-                buffer = buffer[U8_SIZE:]
+                buffer = buffer[U8_SIZE:]  
 
                 if len(buffer) < len_data:
-                    break
+                    break  
 
                 field_data, buffer = buffer[:len_data], buffer[len_data:]
-                field_name = bet_fields.pop(0) 
+                field_name = bet_fields.pop(0)
                 bet_values[field_name] = field_data.decode('utf-8')
-        
-        return Bet(**bet_values)
+
+                if not bet_fields:
+                    batch.append(Bet(**bet_values))
+                    bet_values.clear()
+                    bet_fields = ['agency', 'first_name', 'last_name', 'document', 'birthdate', 'number']
+
+            if len(data) < 8192:
+                break
+
+        return batch
 
 
     def __send_ack(self, client_sock):
