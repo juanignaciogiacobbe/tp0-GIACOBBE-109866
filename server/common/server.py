@@ -54,14 +54,32 @@ class Server:
             client_sock.close()
 
     def handle_signal(self, signum, frame):
+        """
+        Gracefully handles the termination signal (SIGTERM).
+
+        This method is called when the server receives a SIGTERM signal.
+        It ensures that all client connections are closed properly and
+        that the server socket is also closed. Any errors encountered
+        during the closing of the sockets are logged. Once all resources
+        have been closed, the server process exits.
+        """
+        
         logging.info('action: close_clients_conn | result: in_progress')
 
         for client_socket in self._client_sockets:
-            client_socket.close()
-            logging.info('action: close_client_conn | result: success')
+            try:
+                client_socket.close()
+                logging.info(f'action: close_client_conn | result: success | ip: {client_socket.getpeername()[0]}')
+            except OSError as e:
+                logging.error(f'action: close_client_conn | result: fail | error: {e}')
 
-        self._server_socket.close()
-        logging.info('action: close_server_socket | result: success')
+
+        try:
+            self._server_socket.close()
+            logging.info('action: close_server_socket | result: success')
+        except OSError as e:
+            logging.error(f'action: close_server_socket | result: fail | error: {e}')
+
         sys.exit(0)
 
     def __accept_new_connection(self):
