@@ -182,6 +182,43 @@ Se deberá implementar un módulo de comunicación entre el cliente y el servido
 * Correcto empleo de sockets, incluyendo manejo de errores y evitando los fenómenos conocidos como [_short read y short write_](https://cs61.seas.harvard.edu/site/2018/FileDescriptors/).
 
 
+### Resolución del Ejercicio 5
+
+#### Cliente
+
+El cliente emula una agencia de quiniela y envía la siguiente información de cada apuesta al servidor:
+
+- `NOMBRE`: El nombre del apostador.
+- `APELLIDO`: El apellido del apostador.
+- `DOCUMENTO`: El número de documento del apostador.
+- `NACIMIENTO`: La fecha de nacimiento del apostador.
+- `NUMERO`: El número apostado.
+
+El cliente debe recibir estas variables de entorno(se ha modificado el script de `clients-generator.py` para que las reciba), serializar los datos y enviarlos al servidor. Cuando el servidor confirme la recepción de la apuesta con un mensaje de ACK, el cliente imprimirá un mensaje de éxito en los logs.
+
+Se serializan los datos de la apuesta en un formato binario utilizando la estructura `Bet` y luego envía estos datos al servidor a través de un socket TCP. El servidor, al recibir los datos, debe almacenar la apuesta y enviar un `ACK` al cliente.
+
+#### Servidor
+
+El servidor recibe las apuestas enviadas por los clientes y las almacena mediante la función store_bet(...). Luego, el servidor responde con un mensaje de confirmación(`ACK`) que indica si la apuesta fue procesada correctamente.
+
+#### Protocolo de Comunicación
+
+El protocolo entre el cliente y el servidor se basa en un formato binario que envía los campos de la apuesta de la siguiente manera:
+
+- Longitud de cada campo: Antes de cada campo de datos, se envía un byte que indica la longitud del campo(un byte).
+- Datos del campo: Luego, se envían los datos del campo. Se sigue el siguiente orden de envio: `agency`, `first_name`, `last_name`, `document`, `birthdate`, `number`.
+
+Este es un ejemplo de una apuesta serializada:
+
+```
+[length of agency] [agency] [length of first_name] [first_name] ... [length of number] [number]
+```
+
+El servidor recibe un paquete entrante del cliente, y en caso de que la apuesta es recibida y guardada correctamente, responde con un ACK que es un solo byte (1), indicando que la apuesta fue recibida correctamente.
+
+---
+
 ### Ejercicio N°6:
 Modificar los clientes para que envíen varias apuestas a la vez (modalidad conocida como procesamiento por _chunks_ o _batchs_). 
 Los _batchs_ permiten que el cliente registre varias apuestas en una misma consulta, acortando tiempos de transmisión y procesamiento.
