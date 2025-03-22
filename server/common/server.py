@@ -2,20 +2,10 @@ import socket
 import logging
 import signal
 import sys
-import threading
 
 from common.utils import store_bets, Bet
 
 U8_SIZE = 1
-
-class Bet:
-    def __init__(self, agency, first_name, last_name, document, birthdate, number):
-        self.agency = agency
-        self.first_name = first_name
-        self.last_name = last_name
-        self.document = document
-        self.birthdate = birthdate
-        self.number = number
 
 class Server:
     def __init__(self, port, listen_backlog):
@@ -31,8 +21,6 @@ class Server:
 
     def run(self):
         """
-        Dummy Server loop
-
         Server that accept a new connections and establishes a
         communication with a client. After client with communucation
         finishes, servers starts to accept new connections again
@@ -44,9 +32,9 @@ class Server:
             except socket.timeout:
                 continue
             
-                
             self._client_sockets.append(client_sock)
-            threading.Thread(target=self.__handle_client_connection, args=(client_sock,)).start()
+            self.__handle_client_connection(client_sock)
+
 
     def __handle_client_connection(self, client_sock):
         """
@@ -55,25 +43,43 @@ class Server:
         If a problem arises in the communication with the client, the
         client socket will also be closed
         """
+        addr = client_sock.getpeername()
+
         try:
-            bets = []
-            bet = self.__receive_message(client_sock)
+            bet = self.__receive_bet(client_sock)
+            logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {bet}')
 
-            if bet:
-                addr = client_sock.getpeername()
-                bets.append(bet)
-                logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {bet}')
-
-            if bets:
-                store_bets(bets)
-                logging.info(f'action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}')
+            store_bets([bet])
+            logging.info(f'action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}')
 
         except OSError as e:
-            logging.error("action: receive_message | result: fail | error: {e}")
+            logging.error(f'action: receive_message | result: fail | client_ip: {addr[0]} | error: {str(e)}')
         finally:
             client_sock.close()
 
-    def __receive_message(self, client_sock):
+    def __receive_bet(self, client_sock):
+        """
+        Receives a serialized bet from a client and deserializes it into a Bet object.
+
+        This function reads data from the client socket in chunks, processes it to 
+        extract the bet fields (agency, first_name, last_name, document, birthdate, number),
+        and stores them in a dictionary. Once all the fields have been received, it 
+        creates and returns a `Bet` object using the values from the dictionary.
+
+        The function expects the data to be sent in a format where each field is preceded by 
+        its length (encoded as an unsigned 8-bit integer). It uses this information to correctly 
+        deserialize the data.
+
+        Args:
+            client_sock (socket.socket): The client socket from which the bet data is received.
+
+        Returns:
+            Bet: A `Bet` object containing the deserialized fields (agency, first_name, last_name, 
+                document, birthdate, and number).
+
+        Raises:
+            ValueError: If the received data cannot be properly parsed or the expected format is not met.
+        """
         bet_fields = ['agency', 'first_name', 'last_name', 'document', 'birthdate', 'number']
         bet_values = {}
         buffer = b''
