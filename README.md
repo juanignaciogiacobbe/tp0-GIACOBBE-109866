@@ -68,9 +68,25 @@ El script en Python (`clients-generator.py`) genera el archivo de Docker Compose
 
 El archivo de salida generado contendrá la definición de Docker Compose que podrá ser utilizada para ejecutar el servidor y los clientes configurados en contenedores Docker.
 
+---
+
 ### Ejercicio N°2:
 Modificar el cliente y el servidor para lograr que realizar cambios en el archivo de configuración no requiera reconstruír las imágenes de Docker para que los mismos sean efectivos. La configuración a través del archivo correspondiente (`config.ini` y `config.yaml`, dependiendo de la aplicación) debe ser inyectada en el container y persistida por fuera de la imagen (hint: `docker volumes`).
 
+### Resolución del Ejercicio 2
+
+Se modificaron tanto el cliente como el servidor para lograr que los cambios en los archivos de configuración no requieran reconstruir las imágenes de Docker para que los mismos sean efectivos. Los archivos de configuración (`config.ini` para el servidor y `config.yaml` para el cliente) son ahora inyectados en los contenedores utilizando bind mounts en lugar de ser copiados dentro de la imagen durante la construcción. Esto permite que cualquier cambio realizado en los archivos de configuración en el sistema de archivos del host se refleje automáticamente en los contenedores.
+
+1. Se agrega un archivo `.dockerignore` para evitar que Docker copie los archivos de configuraciones tanto del cliente como del servidor a la hora de construir las imagenes de Docker. El archivo luce asi:
+
+    ```bash
+    server/config.ini
+    client/config.yaml
+    ```
+
+2. En lugar de copiar los archivos de configuración en las imágenes durante el proceso de construcción, se configuraron bind mounts en el archivo docker-compose-dev.yaml(junto con esto se actualizó el script de `clients-generator.py` construido en el ejercicio anterior) para que los archivos de configuración en el host se inyecten directamente en los contenedores. Se utiliza un bind mount para los archivos `config.ini` y `config.yaml`, lo que asegura que cualquier cambio realizado en los archivos locales en el host se refleje automáticamente en los contenedores.
+
+---
 
 ### Ejercicio N°3:
 Crear un script de bash `validar-echo-server.sh` que permita verificar el correcto funcionamiento del servidor utilizando el comando `netcat` para interactuar con el mismo. Dado que el servidor es un echo server, se debe enviar un mensaje al servidor y esperar recibir el mismo mensaje enviado.
