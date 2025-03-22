@@ -128,15 +128,6 @@ func main() {
 		Numero:        numero,
 	}
 
-	log.Infof("action: client_init | result: success | client_id: %v | nombre: %v | apellido: %v | documento: %v | nacimiento: %v | numero: %v",
-		clientConfig.ID,
-		clientConfig.Nombre,
-		clientConfig.Apellido,
-		clientConfig.Documento,
-		clientConfig.Nacimiento,
-		clientConfig.Numero,
-	)
-
 	client := common.NewClient(clientConfig)
 	client.StartClient()
 }
