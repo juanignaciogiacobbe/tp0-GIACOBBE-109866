@@ -1,8 +1,8 @@
 # TP0: Docker + Comunicaciones + Concurrencia
 
-En el presente repositorio se provee un esqueleto básico de cliente/servidor, en donde todas las dependencias del mismo se encuentran encapsuladas en containers. Los alumnos deberán resolver una guía de ejercicios incrementales, teniendo en cuenta las condiciones de entrega descritas al final de este enunciado.
-
- El cliente (Golang) y el servidor (Python) fueron desarrollados en diferentes lenguajes simplemente para mostrar cómo dos lenguajes de programación pueden convivir en el mismo proyecto con la ayuda de containers, en este caso utilizando [Docker Compose](https://docs.docker.com/compose/).
+Alumno: Juan Ignacio Giacobbe
+Padron: 109866
+Fecha de Entrega: 27/03/2025
 
 ## Instrucciones de uso
 El repositorio cuenta con un **Makefile** que incluye distintos comandos en forma de targets. Los targets se ejecutan mediante la invocación de:  **make \<target\>**. Los target imprescindibles para iniciar y detener el sistema son **docker-compose-up** y **docker-compose-down**, siendo los restantes targets de utilidad para el proceso de depuración.
@@ -16,60 +16,6 @@ Los targets disponibles son:
 |  `docker-compose-logs` | Permite ver los logs actuales del proyecto. Acompañar con `grep` para lograr ver mensajes de una aplicación específica dentro del compose. |
 | `docker-image`  | Construye las imágenes a ser utilizadas tanto en el servidor como en el cliente. Este target es utilizado por **docker-compose-up**, por lo cual se lo puede utilizar para probar nuevos cambios en las imágenes antes de arrancar el proyecto. |
 | `build` | Compila la aplicación cliente para ejecución en el _host_ en lugar de en Docker. De este modo la compilación es mucho más veloz, pero requiere contar con todo el entorno de Golang y Python instalados en la máquina _host_. |
-
-### Servidor
-
-Se trata de un "echo server", en donde los mensajes recibidos por el cliente se responden inmediatamente y sin alterar. 
-
-Se ejecutan en bucle las siguientes etapas:
-
-1. Servidor acepta una nueva conexión.
-2. Servidor recibe mensaje del cliente y procede a responder el mismo.
-3. Servidor desconecta al cliente.
-4. Servidor retorna al paso 1.
-
-
-### Cliente
- se conecta reiteradas veces al servidor y envía mensajes de la siguiente forma:
- 
-1. Cliente se conecta al servidor.
-2. Cliente genera mensaje incremental.
-3. Cliente envía mensaje al servidor y espera mensaje de respuesta.
-4. Servidor responde al mensaje.
-5. Servidor desconecta al cliente.
-6. Cliente verifica si aún debe enviar un mensaje y si es así, vuelve al paso 2.
-
-### Ejemplo
-
-Al ejecutar el comando `make docker-compose-up`  y luego  `make docker-compose-logs`, se observan los siguientes logs:
-
-```
-client1  | 2024-08-21 22:11:15 INFO     action: config | result: success | client_id: 1 | server_address: server:12345 | loop_amount: 5 | loop_period: 5s | log_level: DEBUG
-client1  | 2024-08-21 22:11:15 INFO     action: receive_message | result: success | client_id: 1 | msg: [CLIENT 1] Message N°1
-server   | 2024-08-21 22:11:14 DEBUG    action: config | result: success | port: 12345 | listen_backlog: 5 | logging_level: DEBUG
-server   | 2024-08-21 22:11:14 INFO     action: accept_connections | result: in_progress
-server   | 2024-08-21 22:11:15 INFO     action: accept_connections | result: success | ip: 172.25.125.3
-server   | 2024-08-21 22:11:15 INFO     action: receive_message | result: success | ip: 172.25.125.3 | msg: [CLIENT 1] Message N°1
-server   | 2024-08-21 22:11:15 INFO     action: accept_connections | result: in_progress
-server   | 2024-08-21 22:11:20 INFO     action: accept_connections | result: success | ip: 172.25.125.3
-server   | 2024-08-21 22:11:20 INFO     action: receive_message | result: success | ip: 172.25.125.3 | msg: [CLIENT 1] Message N°2
-server   | 2024-08-21 22:11:20 INFO     action: accept_connections | result: in_progress
-client1  | 2024-08-21 22:11:20 INFO     action: receive_message | result: success | client_id: 1 | msg: [CLIENT 1] Message N°2
-server   | 2024-08-21 22:11:25 INFO     action: accept_connections | result: success | ip: 172.25.125.3
-server   | 2024-08-21 22:11:25 INFO     action: receive_message | result: success | ip: 172.25.125.3 | msg: [CLIENT 1] Message N°3
-client1  | 2024-08-21 22:11:25 INFO     action: receive_message | result: success | client_id: 1 | msg: [CLIENT 1] Message N°3
-server   | 2024-08-21 22:11:25 INFO     action: accept_connections | result: in_progress
-server   | 2024-08-21 22:11:30 INFO     action: accept_connections | result: success | ip: 172.25.125.3
-server   | 2024-08-21 22:11:30 INFO     action: receive_message | result: success | ip: 172.25.125.3 | msg: [CLIENT 1] Message N°4
-server   | 2024-08-21 22:11:30 INFO     action: accept_connections | result: in_progress
-client1  | 2024-08-21 22:11:30 INFO     action: receive_message | result: success | client_id: 1 | msg: [CLIENT 1] Message N°4
-server   | 2024-08-21 22:11:35 INFO     action: accept_connections | result: success | ip: 172.25.125.3
-server   | 2024-08-21 22:11:35 INFO     action: receive_message | result: success | ip: 172.25.125.3 | msg: [CLIENT 1] Message N°5
-client1  | 2024-08-21 22:11:35 INFO     action: receive_message | result: success | client_id: 1 | msg: [CLIENT 1] Message N°5
-server   | 2024-08-21 22:11:35 INFO     action: accept_connections | result: in_progress
-client1  | 2024-08-21 22:11:40 INFO     action: loop_finished | result: success | client_id: 1
-client1 exited with code 0
-```
 
 
 ## Parte 1: Introducción a Docker
@@ -92,6 +38,35 @@ python3 mi-generador.py $1 $2
 ```
 
 En el archivo de Docker Compose de salida se pueden definir volúmenes, variables de entorno y redes con libertad, pero recordar actualizar este script cuando se modifiquen tales definiciones en los sucesivos ejercicios.
+
+### Resolución del Ejercicio 1
+
+En un principio se generó el script `generar-compose.sh`, ubicado en el root del proyecto. Este script invoca a un subscript de Python llamado `clients-generator.py`, el cual también se encuentra en el root del proyecto.
+
+Para poder ejecutar el script del ejercicio, primero se debe hacer ejecutable corriendo el siguiente comando:
+
+```bash
+chmod +x generar-compose.sh
+```
+
+Luego, se debe ejecutar el script con el siguiente usage:
+
+```bash
+./generar-compose.sh <output-file> <clients-number>
+```
+
+Este script generará un docker-compose con una cantidad n de clientes. En caso de no cumplir con el usage, se devolverá un error.
+
+#### Generación de Docker Compose:
+
+El script en Python (`clients-generator.py`) genera el archivo de Docker Compose con el siguiente formato:
+
+- Un servicio para el servidor (server).
+- Varios servicios para los clientes (client1, client2, ..., clientN).
+- Cada cliente tendrá configuraciones de entorno y estará conectado a una red llamada testing_net.
+- El servidor y los clientes están configurados para depender unos de otros (usando depends_on).
+
+El archivo de salida generado contendrá la definición de Docker Compose que podrá ser utilizada para ejecutar el servidor y los clientes configurados en contenedores Docker.
 
 ### Ejercicio N°2:
 Modificar el cliente y el servidor para lograr que realizar cambios en el archivo de configuración no requiera reconstruír las imágenes de Docker para que los mismos sean efectivos. La configuración a través del archivo correspondiente (`config.ini` y `config.yaml`, dependiendo de la aplicación) debe ser inyectada en el container y persistida por fuera de la imagen (hint: `docker volumes`).
