@@ -232,6 +232,18 @@ La cantidad máxima de apuestas dentro de cada _batch_ debe ser configurable des
 
 Por su parte, el servidor deberá responder con éxito solamente si todas las apuestas del _batch_ fueron procesadas correctamente.
 
+### Resolución del Ejercicio 6
+
+Se modificó el script de `clients-generator.py` para que, al crear el Docker Compose, se monte un nuevo `volume` en el contenedor del cliente, el cual apunta hacia el dataset de apuestas que va a mandar la agencia (que en nuestro caso de uso es el cliente). Luego, se modificó el cliente para que sea capaz de usar el campo `MaxBatchAmount`, el cual viene definido en su archivo de configuración.
+
+También se sufrieron cambios en el protocolo, y es que no vamos a mandar una sola apuesta por paquete, sino que vamos a mandar un batch de apuestas. La cantidad de apuestas que viene en el batch está limitada por la variable `MaxBatchAmount`, y además por el requerimiento de no exceder los 8KB enviados por cada paquete.
+
+Se ha creado la estructura `BatchSender`, la cual se encarga de ingerir los datos que hay en el dataset, los parsea en estructuras del tipo `Bet` (definidas en el ejercicio anterior), y serializa los batches. La idea es que no se cargue el dataset entero en memoria, sino que este `BatchSender` vaya leyendo de a batches y enviándolos al servidor. Por cada batch enviado, se queda aguardando el mensaje `ACK` del servidor, también definido en el ejercicio anterior.
+
+Del lado del servidor no se sufrieron tantos cambios, lo único que se debe tener en cuenta es que ahora consume batches de cada cliente, y no las apuestas por separado. Una vez que obtiene las apuestas de un batch correctamente, este se encarga de ejecutar `store_bets` y procede a enviar el mismo `ACK` que enviaba desde el ejercicio anterior.
+
+---
+
 ### Ejercicio N°7:
 
 Modificar los clientes para que notifiquen al servidor al finalizar con el envío de todas las apuestas y así proceder con el sorteo.
