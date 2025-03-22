@@ -59,7 +59,7 @@ Este script generará un docker-compose con una cantidad n de clientes. En caso 
 
 #### Generación de Docker Compose:
 
-El script en Python (mi-generador.py) genera el archivo de Docker Compose con el siguiente formato:
+El script en Python (`clients-generator.py`) genera el archivo de Docker Compose con el siguiente formato:
 
 - Un servicio para el servidor (server).
 - Varios servicios para los clientes (client1, client2, ..., clientN).
