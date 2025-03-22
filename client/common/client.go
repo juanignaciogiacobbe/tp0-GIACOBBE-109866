@@ -58,9 +58,20 @@ func (c *Client) createClientSocket() error {
 	return nil
 }
 
-
+// sendMessage sends a serialized `Bet` object to the server.
+//
+// This method creates a new `Bet` object based on the client's configuration, serializes it into bytes,
+// and sends it to the server over the established TCP connection. It ensures that the entire message
+// is written to the connection, handling any short writes by writing the message in multiple chunks if necessary.
+//
+// If an error occurs during the write operation, it logs the error and returns it. If the message is successfully sent,
+// it logs the successful sending of the bet with the client's document and bet number.
+//
+// Returns:
+//   - `nil` if the message was successfully sent.
+//   - An error if the write operation fails.
 func (c *Client) sendMessage() error {
-	bet := newBet("1", c.config.Nombre, c.config.Apellido, c.config.Documento, c.config.Nacimiento, c.config.Numero)
+	bet := newBet(c.config.ID, c.config.Nombre, c.config.Apellido, c.config.Documento, c.config.Nacimiento, c.config.Numero)
 
 	data := bet.toBytes()
 
@@ -76,15 +87,16 @@ func (c *Client) sendMessage() error {
 		totalWritten += n
 	}
 
+	// todo: wait for server confirmation
 	log.Infof("action: apuesta_enviada | result: success | dni: %v | numero: %v", c.config.Documento, c.config.Numero)
 
 	return nil
 }
 
-// StartClientLoop starts the loop in which the client sends messages to the server.
+// StartClient starts the mechanism in which the client send its bet to the server.
 // The client sends `LoopAmount` messages, waits for a response, and logs the results.
 // It gracefully handles termination signals (SIGTERM).
-func (c *Client) StartClientLoop() {
+func (c *Client) StartClient() {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGTERM)
 
@@ -106,11 +118,12 @@ func (c *Client) StartClientLoop() {
 		log.Errorf("action: send_bet | result: fail | client_id: %v | error: %v", c.config.ID, err)
 	}
 
-	time.Sleep(c.config.LoopPeriod)
-
-	c.conn.Close()
-
-	log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
+	err = c.conn.Close()
+	if err != nil {
+		log.Errorf("action: close_client_socket | result: fail | client_id: %v | error: %v", c.config.ID, err)
+	} else {
+		log.Infof("action: close_client_socket | result: success | client_id: %v", c.config.ID)
+	}
 }
 
 // HandleSignal gracefully handles the termination signal (SIGTERM).
