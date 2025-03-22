@@ -80,14 +80,9 @@ func (b *BatchSender) SendBatches(filename string) error {
 // SendBatch sends a batch of bets to the server. It serializes the bets and sends them in chunks.
 func (b *BatchSender) SendBatch(bets []Bet) error {
 	data := []byte{}
-	totalBytes := 0
 	for _, bet := range bets {
-		// Serialize each bet to bytes and append it to the data slice
 		data = append(data, bet.toBytes()...)
-		totalBytes += len(bet.toBytes())
 	}
-
-	log.Infof("action: send_batch | result: success | client_id: %v | batch_size: %d bets | total_bytes: %d", b.client.config.ID, len(bets), totalBytes)
 
 	// Send the data in chunks to avoid short writes
 	totalWritten := 0
