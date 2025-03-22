@@ -87,8 +87,18 @@ func (c *Client) sendMessage() error {
 		totalWritten += n
 	}
 
-	// todo: wait for server confirmation
-	log.Infof("action: apuesta_enviada | result: success | dni: %v | numero: %v", c.config.Documento, c.config.Numero)
+	ack := make([]byte, 1) // Expecting 1 byte from the server
+	_, err := c.conn.Read(ack)
+	if err != nil {
+		log.Errorf("action: wait_for_ack | result: fail | client_id: %v | error: %v", c.config.ID, err)
+		return err
+	}
+
+	if ack[0] == 1 {
+		log.Infof("action: apuesta_enviada | result: success | dni: %v | numero: %v", c.config.Documento, c.config.Numero)
+	} else {
+		log.Infof("action: apuesta_enviada | result: fail | dni: %v | numero: %v", c.config.Documento, c.config.Numero)
+	}
 
 	return nil
 }

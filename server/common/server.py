@@ -50,6 +50,7 @@ class Server:
             logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {bet}')
 
             store_bets([bet])
+            self.__send_ack(client_sock)
             logging.info(f'action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}')
 
         except OSError as e:
@@ -100,6 +101,24 @@ class Server:
                 bet_values[field_name] = field_data.decode('utf-8')
         
         return Bet(**bet_values)
+
+
+    def __send_ack(self, client_sock):
+        """
+        Sends an acknowledgment (ACK) message to client.
+
+         This method sends a message containing the value `1` to the client, indicating that the
+        bet has been successfully received and processed.
+
+        Args:
+            client_sock (socket.socket): El socket del cliente al que se le enviará el ACK.
+        """
+        try:
+            ack_message = b'\x01' 
+            client_sock.send(ack_message)
+            logging.info(f'action: send_ack | result: success | ip: {client_sock.getpeername()[0]}')
+        except OSError as e:
+            logging.error(f'action: send_ack | result: fail | error: {e}')
 
 
     def handle_signal(self, signum, frame):
