@@ -134,6 +134,28 @@ Para que la comunicación entre los contenedores funcione correctamente, se debe
 ### Ejercicio N°4:
 Modificar servidor y cliente para que ambos sistemas terminen de forma _graceful_ al recibir la signal SIGTERM. Terminar la aplicación de forma _graceful_ implica que todos los _file descriptors_ (entre los que se encuentran archivos, sockets, threads y procesos) deben cerrarse correctamente antes que el thread de la aplicación principal muera. Loguear mensajes en el cierre de cada recurso (hint: Verificar que hace el flag `-t` utilizado en el comando `docker compose down`).
 
+### Resolución del Ejercicio 4
+
+Tanto el servidor como el cliente ahora cierran sus recursos de manera adecuada cuando reciben la señal de terminación `SIGTERM`. La señal `SIGTERM` es capturada en ambos sistemas (servidor y cliente). Cuando se recibe esta señal, se ejecuta una función que cierra los recursos abiertos (como conexiones de cliente y el socket del servidor) de manera ordenada y registra el cierre en los logs.
+
+#### Cierre Graceful en el Servidor:
+
+En el servidor, la función `handle_signal` es responsable de manejar la señal de terminación. Se asegura de:
+
+- Cerrar todas las conexiones de cliente antes de finalizar el servidor.
+- Cerrar el socket del servidor para liberar el recurso de manera ordenada.
+- Registrar mensajes en los logs cada vez que se cierra un recurso.
+
+#### Cierre Graceful en el Cliente:
+
+En el cliente se spawnea una go routine encargada de manejar la signal `SIGTERM`. Esta routine se encarga de:
+
+- Cerrar el socket del cliente de forma ordenada.
+- Cerrar el canal de señales después de manejar la señal.
+- Registrar mensajes en los logs que indican que el cliente está cerrando la conexión y el proceso.
+
+---
+
 ## Parte 2: Repaso de Comunicaciones
 
 Las secciones de repaso del trabajo práctico plantean un caso de uso denominado **Lotería Nacional**. Para la resolución de las mismas deberá utilizarse como base el código fuente provisto en la primera parte, con las modificaciones agregadas en el ejercicio 4.
