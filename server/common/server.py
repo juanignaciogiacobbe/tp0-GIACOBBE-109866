@@ -2,6 +2,20 @@ import socket
 import logging
 import signal
 import sys
+import threading
+
+from common.utils import store_bets, Bet
+
+U8_SIZE = 1
+
+class Bet:
+    def __init__(self, agency, first_name, last_name, document, birthdate, number):
+        self.agency = agency
+        self.first_name = first_name
+        self.last_name = last_name
+        self.document = document
+        self.birthdate = birthdate
+        self.number = number
 
 class Server:
     def __init__(self, port, listen_backlog):
@@ -32,7 +46,7 @@ class Server:
             
                 
             self._client_sockets.append(client_sock)
-            self.__handle_client_connection(client_sock)
+            threading.Thread(target=self.__handle_client_connection, args=(client_sock,)).start()
 
     def __handle_client_connection(self, client_sock):
         """
@@ -42,16 +56,45 @@ class Server:
         client socket will also be closed
         """
         try:
-            # TODO: Modify the receive to avoid short-reads
-            msg = client_sock.recv(1024).rstrip().decode('utf-8')
-            addr = client_sock.getpeername()
-            logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {msg}')
-            # TODO: Modify the send to avoid short-writes
-            client_sock.send("{}\n".format(msg).encode('utf-8'))
+            bets = []
+            bet = self.__receive_message(client_sock)
+
+            if bet:
+                addr = client_sock.getpeername()
+                bets.append(bet)
+                logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {bet}')
+
+            if bets:
+                store_bets(bets)
+                logging.info(f'action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}')
+
         except OSError as e:
             logging.error("action: receive_message | result: fail | error: {e}")
         finally:
             client_sock.close()
+
+    def __receive_message(self, client_sock):
+        bet_fields = ['agency', 'first_name', 'last_name', 'document', 'birthdate', 'number']
+        bet_values = {}
+        buffer = b''
+
+        while bet_fields:
+            data = client_sock.recv(1024)
+            buffer += data
+
+            while len(buffer) >= U8_SIZE:
+                len_data = int.from_bytes(buffer[:U8_SIZE], byteorder='big')
+                buffer = buffer[U8_SIZE:]
+
+                if len(buffer) < len_data:
+                    break
+
+                field_data, buffer = buffer[:len_data], buffer[len_data:]
+                field_name = bet_fields.pop(0) 
+                bet_values[field_name] = field_data.decode('utf-8')
+        
+        return Bet(**bet_values)
+
 
     def handle_signal(self, signum, frame):
         """
