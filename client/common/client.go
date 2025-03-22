@@ -125,9 +125,12 @@ func (c *Client) StartClient() {
 		return
 	}
 
-	err = c.sendMessage()
+	batchSender := NewBatchSender(c, c.config.MaxBatchAmount)
+
+	// Send bets from the file
+	err = batchSender.SendBatches("./agency.csv")
 	if err != nil {
-		log.Errorf("action: send_bet | result: fail | client_id: %v | error: %v", c.config.ID, err)
+		log.Errorf("action: send_bets | result: fail | client_id: %v | error: %v", c.config.ID, err)
 	}
 
 	err = c.conn.Close()
