@@ -2,6 +2,7 @@ package common
 
 import (
 	"encoding/csv"
+	"fmt"
 	"os"
 )
 
@@ -37,7 +38,7 @@ func (b *BatchSender) SendBatches(filename string) error {
 		if err != nil {
 			if err.Error() == "EOF" {
 				if len(batch) > 0 {
-					err := b.SendBatch(batch)
+					err := b.SendBatch(batch, true)
 					if err != nil {
 						log.Errorf("action: send_batch | result: fail | client_id: %v | error: %v", b.client.config.ID, err)
 						return err
@@ -62,7 +63,7 @@ func (b *BatchSender) SendBatches(filename string) error {
 		batchSize++
 
 		if batchSize >= b.maxBatchSize {
-			err := b.SendBatch(batch)
+			err := b.SendBatch(batch, false)
 			if err != nil {
 				log.Errorf("action: send_batch | result: fail | client_id: %v | error: %v", b.client.config.ID, err)
 				return err
@@ -78,8 +79,16 @@ func (b *BatchSender) SendBatches(filename string) error {
 }
 
 // SendBatch sends a batch of bets to the server. It serializes the bets and sends them in chunks.
-func (b *BatchSender) SendBatch(bets []Bet) error {
+func (b *BatchSender) SendBatch(bets []Bet, isLastBatch bool) error {
 	data := []byte{}
+
+	controlByte := byte(0x00)
+	if isLastBatch {
+		controlByte = byte(0x01) // Mark this batch as the last
+	}
+
+	data = append(data, controlByte) // First byte of the batch is the control byte
+
 	for _, bet := range bets {
 		data = append(data, bet.toBytes()...)
 	}
@@ -106,9 +115,7 @@ func (b *BatchSender) SendBatch(bets []Bet) error {
 
 	if ack[0] == 1 {
 		log.Infof("action: send_batch | result: success | client_id: %v | batch_size: %d", b.client.config.ID, len(bets))
-	} else {
-		log.Errorf("action: send_batch | result: fail | client_id: %v | batch_size: %d", b.client.config.ID, len(bets))
+		return nil
 	}
-
-	return nil
+	return fmt.Errorf("invalid confirmation code from server")
 }
