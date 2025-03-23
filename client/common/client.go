@@ -1,9 +1,12 @@
 package common
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -88,6 +91,25 @@ func (c *Client) StartClient() {
 		log.Errorf("action: send_bets | result: fail | client_id: %v | error: %v", c.config.ID, err)
 	}
 
+	// Notify the server that the client has finished sending bets
+	err = c.notifyBetsEnd()
+	if err != nil {
+		log.Errorf("action: notify_bets_end | result: fail | client_id: %v | error: %v", c.config.ID, err)
+		return
+	}
+
+	// Wait for the server to confirm the lottery (sorteo) has finished
+	err = c.waitForLotteryConfirmation()
+	if err != nil {
+		log.Errorf("action: wait_for_lottery_confirmation | result: fail | client_id: %v | error: %v", c.config.ID, err)
+		return
+	}
+
+	// Query for winners
+	if err := c.QueryWinners(); err != nil {
+		log.Errorf("action: query_winners | result: fail | client_id: %v | error: %v", c.config.ID, err)
+	}
+
 	err = c.conn.Close()
 	if err != nil {
 		log.Errorf("action: close_client_socket | result: fail | client_id: %v | error: %v", c.config.ID, err)
@@ -114,4 +136,72 @@ func (c *Client) HandleSignal(sigs chan os.Signal) {
 		close(sigs)
 		log.Infof("action: close_client | result: success | client_id: %v", c.config.ID)
 	}
+}
+
+// notifyBetsEnd sends a notification to the server indicating that the client has finished sending all bets.
+// It sends a 1-byte packet (NotifyBetsEnd) to signal the completion.
+func (c *Client) notifyBetsEnd() error {
+	notifyPacket := []byte{0x01} // 1-byte packet indicating the client has finished
+	_, err := c.conn.Write(notifyPacket)
+	if err != nil {
+		log.Errorf("action: notify_bets_end | result: fail | client_id: %v | error: %v", c.config.ID, err)
+		return err
+	}
+	log.Infof("action: notify_bets_end | result: success | client_id: %v", c.config.ID)
+	return nil
+}
+
+// waitForLotteryConfirmation waits for the server to confirm that the lottery (sorteo) has been completed.
+// The server must respond with a confirmation message once all agencies have notified the completion of their bets.
+func (c *Client) waitForLotteryConfirmation() error {
+	// Wait for the server to confirm the lottery
+	confirmationPacket := make([]byte, 1)
+	_, err := c.conn.Read(confirmationPacket)
+	if err != nil {
+		log.Errorf("action: wait_for_lottery_confirmation | result: fail | client_id: %v | error: %v", c.config.ID, err)
+		return err
+	}
+
+	// Check if the server has confirmed with a success code (e.g., 0x01)
+	if confirmationPacket[0] == 0x01 {
+		log.Infof("action: lottery_confirmation | result: success | client_id: %v", c.config.ID)
+		return nil
+	}
+
+	log.Errorf("action: lottery_confirmation | result: fail | client_id: %v | error: invalid confirmation packet", c.config.ID)
+	return fmt.Errorf("invalid confirmation packet from server")
+}
+
+// QueryWinners queries the server for the lottery winners for the client's agency
+func (c *Client) QueryWinners() error {
+	agencyID, err := strconv.Atoi(c.config.ID) // Convert the string ID to int
+	if err != nil {
+		log.Errorf("action: query_winners | result: fail | client_id: %v | error: invalid agency ID %v", c.config.ID, err)
+		return err
+	}
+
+	// Send the packet type byte (0x02) and the agency ID byte
+	queryPacket := []byte{0x02, byte(agencyID)} // 0x02 indicates QueryWinnerForAgency, followed by the agency ID
+	_, err = c.conn.Write(queryPacket)
+	if err != nil {
+		return err
+	}
+
+	winners_data := make([]byte, 1024)
+	n, err := c.conn.Read(winners_data)
+	if err != nil {
+		return err
+	}
+
+	winners := string(winners_data[:n])
+	if winners == "0" {
+		log.Infof("action: consulta_ganadores | result: success | cant_ganadores: 0")
+		return nil
+	}
+
+	winner_list := strings.Split(winners, ",")
+
+	log.Infof("action: consulta_ganadores | result: success | cant_ganadores: %v", len(winner_list))
+
+	return nil
 }
