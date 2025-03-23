@@ -55,11 +55,12 @@ class Server:
                 logging.info(f'action: receive_batch | result: success | ip: {addr[0]} | batch_len: {len(batch)}')
 
                 store_bets(batch)
-                self.__send_ack(client_sock)
+                self.__send_ack(client_sock, True)
                 logging.info(f'action: apuesta_recibida | result: success | cantidad: {len(batch)}')
 
             except Exception as e:
                 logging.error(f'action: apuesta_recibida | result: fail | error: {e}')
+                self.__send_ack(client_sock, False)                
                 break
 
         client_sock.close()
@@ -117,7 +118,7 @@ class Server:
         return batch
 
 
-    def __send_ack(self, client_sock):
+    def __send_ack(self, client_sock, success=True):
         """
         Sends an acknowledgment (ACK) message to client.
 
@@ -128,9 +129,10 @@ class Server:
             client_sock (socket.socket): El socket del cliente al que se le enviará el ACK.
         """
         try:
-            ack_message = b'\x01' 
+            ack_message = b'\x01' if success else b'\x00'
             client_sock.send(ack_message)
-            logging.info(f'action: send_ack | result: success | ip: {client_sock.getpeername()[0]}')
+            result = "success" if success else "fail"
+            logging.info(f'action: send_ack | result: {result} | ip: {client_sock.getpeername()[0]}')
         except OSError as e:
             logging.error(f'action: send_ack | result: fail | error: {e}')
 
