@@ -60,51 +60,6 @@ func (c *Client) createClientSocket() error {
 	return nil
 }
 
-// sendMessage sends a serialized `Bet` object to the server.
-//
-// This method creates a new `Bet` object based on the client's configuration, serializes it into bytes,
-// and sends it to the server over the established TCP connection. It ensures that the entire message
-// is written to the connection, handling any short writes by writing the message in multiple chunks if necessary.
-//
-// If an error occurs during the write operation, it logs the error and returns it. If the message is successfully sent,
-// it logs the successful sending of the bet with the client's document and bet number.
-//
-// Returns:
-//   - `nil` if the message was successfully sent.
-//   - An error if the write operation fails.
-func (c *Client) sendMessage() error {
-	bet := newBet(c.config.ID, c.config.Nombre, c.config.Apellido, c.config.Documento, c.config.Nacimiento, c.config.Numero)
-
-	data := bet.toBytes()
-
-	totalWritten := 0
-	messageLen := len(data)
-
-	for totalWritten < messageLen {
-		n, err := c.conn.Write(data[totalWritten:])
-		if err != nil {
-			log.Errorf("action: send_bet | result: fail | client_id: %v | error: %v", c.config.ID, err)
-			return err
-		}
-		totalWritten += n
-	}
-
-	ack := make([]byte, 1) // Expecting 1 byte from the server
-	_, err := c.conn.Read(ack)
-	if err != nil {
-		log.Errorf("action: wait_for_ack | result: fail | client_id: %v | error: %v", c.config.ID, err)
-		return err
-	}
-
-	if ack[0] == 1 {
-		log.Infof("action: apuesta_enviada | result: success | dni: %v | numero: %v", c.config.Documento, c.config.Numero)
-	} else {
-		log.Infof("action: apuesta_enviada | result: fail | dni: %v | numero: %v", c.config.Documento, c.config.Numero)
-	}
-
-	return nil
-}
-
 // StartClient starts the mechanism in which the client send its bet to the server.
 // The client sends `LoopAmount` messages, waits for a response, and logs the results.
 // It gracefully handles termination signals (SIGTERM).
