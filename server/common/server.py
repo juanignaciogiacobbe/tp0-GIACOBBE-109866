@@ -7,6 +7,14 @@ from common.utils import store_bets, Bet, load_bets, has_won
 
 U8_SIZE = 1
 
+NOTIFY_PACKET_FLAG = b'\x01' 
+QUERY_WINNERS_FLAG = 0x02
+EMPTY_BATCH_FLAG = b'\x02'
+LAST_BATCH_FLAG = b'\x01'
+ACK_FAILED = b'\x00'
+ACK_SUCCESS = b'\x01' 
+
+
 class Server:
     def __init__(self, port, listen_backlog, client_count):
         # Initialize server socket
@@ -76,7 +84,7 @@ class Server:
         try:
             # Receive a 1-byte packet indicating the client has finished
             notify_packet = client_sock.recv(1) 
-            if notify_packet == b'\x01':  # Check if the client sent the "finished" notification
+            if notify_packet == NOTIFY_PACKET_FLAG:
                 logging.info(f'action: client_finish_notify | result: success | client_ip: {client_sock.getpeername()[0]}')
                 self._clients_ready += 1
 
@@ -135,7 +143,7 @@ class Server:
         """
         try:
             query_packet = client_sock.recv(2)  # Expecting 2 bytes for the query
-            if query_packet[0] == 0x02:  # Query for winners
+            if query_packet[0] == QUERY_WINNERS_FLAG:  # Query for winners
                 agency_id = query_packet[1]
                 logging.info(f'action: query_winners | result: success | client_ip: {client_sock.getpeername()[0]} | agency_id: {agency_id}')
                 self.__send_winners(client_sock, agency_id)
@@ -163,11 +171,11 @@ class Server:
         # Read the first byte of the batch to check if it's the last batch (0x01 means last, 0x00 means not last)
         first_byte = client_sock.recv(1)
 
-        if first_byte == b'\x02':
+        if first_byte == EMPTY_BATCH_FLAG:
             return [], False  
         
         if first_byte:
-            is_last_batch = first_byte == b'\x01'
+            is_last_batch = first_byte == LAST_BATCH_FLAG
         else:
             is_last_batch = False
 
@@ -206,7 +214,7 @@ class Server:
         indicating whether the batch was successfully processed.
         """
         try:
-            ack_message = b'\x01' if success else b'\x00'
+            ack_message = ACK_SUCCESS if success else ACK_FAILED
             client_sock.send(ack_message)
         except OSError as e:
             logging.error(f'action: send_ack | result: fail | error: {e}')
