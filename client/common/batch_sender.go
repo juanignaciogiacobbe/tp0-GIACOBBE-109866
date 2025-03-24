@@ -6,6 +6,12 @@ import (
 	"os"
 )
 
+const (
+	ControlByteStartBatch  = byte(0x00)
+	ControlByteEndingBatch = byte(0x01)
+	ControlByteEmptyBatch  = byte(0x02)
+)
+
 // BatchSender is responsible for reading and sending batches of bets to the server.
 type BatchSender struct {
 	client       *Client
@@ -38,14 +44,14 @@ func (b *BatchSender) SendBatches(filename string) error {
 		if err != nil {
 			if err.Error() == "EOF" {
 				if len(batch) > 0 {
-					controlByte := byte(0x01)
+					controlByte := byte(ControlByteEndingBatch)
 					err := b.SendBatch(batch, controlByte)
 					if err != nil {
 						log.Errorf("action: send_batch | result: fail | client_id: %v | error: %v", b.client.config.ID, err)
 						return err
 					}
 				} else if len(batch) == 0 {
-					controlByte := byte(0x02)
+					controlByte := byte(ControlByteEmptyBatch)
 					err := b.SendBatch(batch, controlByte)
 					if err != nil {
 						log.Errorf("action: send_batch | result: fail | client_id: %v | error: %v", b.client.config.ID, err)
@@ -71,7 +77,7 @@ func (b *BatchSender) SendBatches(filename string) error {
 		batchSize++
 
 		if batchSize >= b.maxBatchSize {
-			controlByte := byte(0x00)
+			controlByte := byte(ControlByteStartBatch)
 			err := b.SendBatch(batch, controlByte)
 			if err != nil {
 				log.Errorf("action: send_batch | result: fail | client_id: %v | error: %v", b.client.config.ID, err)
