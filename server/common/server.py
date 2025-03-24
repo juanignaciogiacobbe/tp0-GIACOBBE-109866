@@ -163,7 +163,6 @@ class Server:
         first_byte = client_sock.recv(1)
 
         if first_byte == b'\x02':
-            logging.info("action: recibo batch extra")
             return [], False  
         
         if first_byte:
