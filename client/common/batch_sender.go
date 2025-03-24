@@ -38,15 +38,16 @@ func (b *BatchSender) SendBatches(filename string) error {
 		if err != nil {
 			if err.Error() == "EOF" {
 				if len(batch) > 0 {
-					err := b.SendBatch(batch, true)
+					controlByte := byte(0x01)
+					err := b.SendBatch(batch, controlByte)
 					if err != nil {
 						log.Errorf("action: send_batch | result: fail | client_id: %v | error: %v", b.client.config.ID, err)
 						return err
 					}
 				} else if len(batch) == 0 {
-					log.Info("MANDE UN BATCH EXTRA")
-
-					err := b.SendBatch(batch, true)
+					log.Info("MANDE UN BATCH EXTRA VACIO")
+					controlByte := byte(0x02)
+					err := b.SendBatch(batch, controlByte)
 					if err != nil {
 						log.Errorf("action: send_batch | result: fail | client_id: %v | error: %v", b.client.config.ID, err)
 						return err
@@ -71,7 +72,8 @@ func (b *BatchSender) SendBatches(filename string) error {
 		batchSize++
 
 		if batchSize >= b.maxBatchSize {
-			err := b.SendBatch(batch, false)
+			controlByte := byte(0x00)
+			err := b.SendBatch(batch, controlByte)
 			if err != nil {
 				log.Errorf("action: send_batch | result: fail | client_id: %v | error: %v", b.client.config.ID, err)
 				return err
@@ -87,13 +89,13 @@ func (b *BatchSender) SendBatches(filename string) error {
 }
 
 // SendBatch sends a batch of bets to the server. It serializes the bets and sends them in chunks.
-func (b *BatchSender) SendBatch(bets []Bet, isLastBatch bool) error {
+func (b *BatchSender) SendBatch(bets []Bet, controlByte byte) error {
 	data := []byte{}
 
-	controlByte := byte(0x00)
-	if isLastBatch {
-		controlByte = byte(0x01) // Mark this batch as the last
-	}
+	// controlByte := byte(0x00)
+	// if isLastBatch {
+	// 	controlByte = byte(0x01) // Mark this batch as the last
+	// }
 
 	data = append(data, controlByte) // First byte of the batch is the control byte
 
