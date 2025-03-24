@@ -43,6 +43,12 @@ func (b *BatchSender) SendBatches(filename string) error {
 						log.Errorf("action: send_batch | result: fail | client_id: %v | error: %v", b.client.config.ID, err)
 						return err
 					}
+				} else if len(batch) == 0 {
+					err := b.SendBatch(batch, true)
+					if err != nil {
+						log.Errorf("action: send_batch | result: fail | client_id: %v | error: %v", b.client.config.ID, err)
+						return err
+					}
 					log.Info("MANDE UN BATCH EXTRA")
 				}
 				break
