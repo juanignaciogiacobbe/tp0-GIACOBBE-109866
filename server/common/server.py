@@ -47,6 +47,7 @@ class Server:
             try:
                 batch, is_last_batch = self.__receive_batch(client_sock)
                 if len(batch) == 0:
+                    self.__send_ack(client_sock, True)
                     logging.info(f'action: finish_batches_reading | result: success | ip: {addr[0]}')
                     break
 
