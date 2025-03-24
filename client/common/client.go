@@ -20,12 +20,6 @@ type ClientConfig struct {
 	LoopPeriod    time.Duration
 
 	MaxBatchAmount int
-
-	Nombre     string
-	Apellido   string
-	Documento  string
-	Nacimiento string
-	Numero     string
 }
 
 // Client Entity that encapsulates how
