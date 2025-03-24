@@ -15,6 +15,12 @@ import (
 
 var log = logging.MustGetLogger("log")
 
+const (
+	notifyPacketFlag       = byte(0x01)
+	successCode            = byte(0x01)
+	queryWinnersPacketFlag = byte(0x02)
+)
+
 // ClientConfig Configuration used by the client
 type ClientConfig struct {
 	ID            string
@@ -23,12 +29,6 @@ type ClientConfig struct {
 	LoopPeriod    time.Duration
 
 	MaxBatchAmount int
-
-	Nombre     string
-	Apellido   string
-	Documento  string
-	Nacimiento string
-	Numero     string
 }
 
 // Client Entity that encapsulates how
@@ -142,7 +142,7 @@ func (c *Client) HandleSignal(sigs chan os.Signal) {
 // notifyBetsEnd sends a notification to the server indicating that the client has finished sending all bets.
 // It sends a 1-byte packet (NotifyBetsEnd) to signal the completion.
 func (c *Client) notifyBetsEnd() error {
-	notifyPacket := []byte{0x01} // 1-byte packet indicating the client has finished
+	notifyPacket := []byte{notifyPacketFlag}
 	_, err := c.conn.Write(notifyPacket)
 	if err != nil {
 		log.Errorf("action: notify_bets_end | result: fail | client_id: %v | error: %v", c.config.ID, err)
@@ -163,8 +163,8 @@ func (c *Client) waitForLotteryConfirmation() error {
 		return err
 	}
 
-	// Check if the server has confirmed with a success code (e.g., 0x01)
-	if confirmationPacket[0] == 0x01 {
+	// Check if the server has confirmed with a success code
+	if confirmationPacket[0] == successCode {
 		log.Infof("action: lottery_confirmation | result: success | client_id: %v", c.config.ID)
 		return nil
 	}
@@ -175,14 +175,14 @@ func (c *Client) waitForLotteryConfirmation() error {
 
 // QueryWinners queries the server for the lottery winners for the client's agency
 func (c *Client) QueryWinners() error {
-	agencyID, err := strconv.Atoi(c.config.ID) // Convert the string ID to int
+	agencyID, err := strconv.Atoi(c.config.ID)
 	if err != nil {
 		log.Errorf("action: query_winners | result: fail | client_id: %v | error: invalid agency ID %v", c.config.ID, err)
 		return err
 	}
 
 	// Send the packet type byte (0x02) and the agency ID byte
-	queryPacket := []byte{0x02, byte(agencyID)} // 0x02 indicates QueryWinnerForAgency, followed by the agency ID
+	queryPacket := []byte{queryWinnersPacketFlag, byte(agencyID)}
 	_, err = c.conn.Write(queryPacket)
 	if err != nil {
 		return err
