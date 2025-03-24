@@ -276,6 +276,12 @@ En este ejercicio es importante considerar los mecanismos de sincronización a u
 
 Modificar el servidor para que permita aceptar conexiones y procesar mensajes en paralelo. En caso de que el alumno implemente el servidor en Python utilizando _multithreading_,  deberán tenerse en cuenta las [limitaciones propias del lenguaje](https://wiki.python.org/moin/GlobalInterpreterLock).
 
+### Resolución del Ejercicio 8
+
+Para lograr que el servidor procese mensajes en paralelo, se opto por usar un `Barrier` como metodo de sincronizacion entre los distintos clientes. La idea es que el servidor coloque la barrera en el momento en el que esta esperando a que todos los clientes notifiquen que terminaron de mandar sus apuestas. Una vez llegado a ese punto, se procede con el sorteo, y se pasa a procesar las distintas consultas de ganadores de parte de las agencias.
+
+---
+
 ## Condiciones de Entrega
 Se espera que los alumnos realicen un _fork_ del presente repositorio para el desarrollo de los ejercicios y que aprovechen el esqueleto provisto tanto (o tan poco) como consideren necesario.
 
