@@ -101,8 +101,6 @@ func (b *BatchSender) SendBatch(bets []Bet, isLastBatch bool) error {
 		data = append(data, bet.toBytes()...)
 	}
 
-	log.Infof("data len %v", len(data))
-
 	// Send the data in chunks to avoid short writes
 	totalWritten := 0
 	messageLen := len(data)
@@ -114,6 +112,8 @@ func (b *BatchSender) SendBatch(bets []Bet, isLastBatch bool) error {
 		}
 		totalWritten += n
 	}
+
+	log.Info("esperando ack...")
 
 	// Wait for the server's acknowledgment (ACK)
 	ack := make([]byte, 1) // Expecting 1 byte from the server
