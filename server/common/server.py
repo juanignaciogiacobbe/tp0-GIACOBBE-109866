@@ -163,6 +163,7 @@ class Server:
         first_byte = client_sock.recv(1)
         if first_byte:
             is_last_batch = first_byte == b'\x01'
+            logging.info(f'tengo el last batch indicator {is_last_batch}')
         else:
             is_last_batch = False
 

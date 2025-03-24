@@ -113,8 +113,6 @@ func (b *BatchSender) SendBatch(bets []Bet, isLastBatch bool) error {
 		totalWritten += n
 	}
 
-	log.Info("esperando ack...")
-
 	// Wait for the server's acknowledgment (ACK)
 	ack := make([]byte, 1) // Expecting 1 byte from the server
 	_, err := b.client.conn.Read(ack)
