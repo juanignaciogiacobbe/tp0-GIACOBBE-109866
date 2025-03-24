@@ -144,8 +144,8 @@ class Server:
 
         except Exception as e:
             logging.error(f'action: query_winners | result: fail | error: {e}')
-        finally:
-            client_sock.close()
+        # finally:
+        #     client_sock.close()
 
 
     def __receive_batch(self, client_sock):
