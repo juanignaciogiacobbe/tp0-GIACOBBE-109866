@@ -105,6 +105,7 @@ func (c *Client) StartClient() {
 		return
 	}
 
+	time.Sleep(1 * time.Second)
 	// Query for winners
 	if err := c.QueryWinners(); err != nil {
 		log.Errorf("action: query_winners | result: fail | client_id: %v | error: %v", c.config.ID, err)
