@@ -45,7 +45,6 @@ func (b *BatchSender) SendBatches(filename string) error {
 						return err
 					}
 				} else if len(batch) == 0 {
-					log.Info("MANDE UN BATCH EXTRA VACIO")
 					controlByte := byte(0x02)
 					err := b.SendBatch(batch, controlByte)
 					if err != nil {
