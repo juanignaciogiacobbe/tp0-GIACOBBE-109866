@@ -2,6 +2,7 @@ import socket
 import logging
 import signal
 import sys
+import threading
 
 from common.utils import store_bets, Bet, load_bets, has_won
 
@@ -15,12 +16,13 @@ class Server:
         self._server_socket.listen(listen_backlog)
         self._client_sockets = []
         self._server_socket.settimeout(1)
-        self._clients_ready = 0
         self._total_clients = client_count
         self._lottery_winners = {}
 
         # Handle SIGTERM signal
         signal.signal(signal.SIGTERM, self.handle_signal)
+
+        self._barrier = threading.Barrier(client_count, action=self.__perform_lottery)
 
     def run(self):
         """
@@ -34,7 +36,8 @@ class Server:
                 continue
 
             self._client_sockets.append(client_sock)
-            self.__handle_client_connection(client_sock)
+            threading.Thread(target=self.__handle_client_connection, args=(client_sock,)).start()
+            # self.__handle_client_connection(client_sock)
 
     def __handle_client_connection(self, client_sock):
         """
@@ -78,15 +81,7 @@ class Server:
             notify_packet = client_sock.recv(1) 
             if notify_packet == b'\x01':  # Check if the client sent the "finished" notification
                 logging.info(f'action: client_finish_notify | result: success | client_ip: {client_sock.getpeername()[0]}')
-                self._clients_ready += 1
-
-                # If all clients have finished, perform the lottery
-                if self._clients_ready >= self._total_clients:  
-                    self.__perform_lottery()
-
-                    for client_sock in self._client_sockets:
-                        self.__send_ack(client_sock, True)
-                        self.__handle_winner_queries(client_sock)
+                self._barrier.wait()
             else:
                 logging.error(f'action: client_finish_notify | result: fail | invalid packet received | client_ip: {client_sock.getpeername()[0]}')
         except Exception as e:
@@ -111,6 +106,19 @@ class Server:
 
         self._lottery_winners = winners
         logging.info("action: sorteo | result: success") 
+        self.__notify_clients_about_lottery()
+
+    def __notify_clients_about_lottery(self):
+        """
+        Sends the lottery result to each client after the lottery is completed.
+        """
+        for client_sock in self._client_sockets:
+            try:
+                self.__send_ack(client_sock, True)
+                self.__handle_winner_queries(client_sock)
+            except OSError as e:
+                logging.error(f'action: send_notification | result: fail | error: {e}')
+
 
     def __send_winners(self, client_sock, agency_id):
         """
