@@ -169,6 +169,7 @@ class Server:
         while True:
             data = client_sock.recv(8192)  # max 8kB
             if not data:
+                logging.info("NO LEI NADA")
                 break  # No more data
 
             buffer += data
