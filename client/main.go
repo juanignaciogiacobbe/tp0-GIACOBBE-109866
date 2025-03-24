@@ -100,19 +100,6 @@ func main() {
 		log.Criticalf("%s", err)
 	}
 
-	// Read environment variables for client
-	nombre := os.Getenv("NOMBRE")
-	apellido := os.Getenv("APELLIDO")
-	documento := os.Getenv("DOCUMENTO")
-	nacimiento := os.Getenv("NACIMIENTO")
-	numero := os.Getenv("NUMERO")
-
-	// Check if any of the required variables are missing
-	if nombre == "" || apellido == "" || documento == "" || nacimiento == "" || numero == "" {
-		log.Criticalf("action: init_client | result: fail | client_id: %v | error: missing environment variables", v.GetString("id"))
-		os.Exit(1)
-	}
-
 	// Print program config with debugging purposes
 	PrintConfig(v)
 
@@ -121,21 +108,7 @@ func main() {
 		ID:            v.GetString("id"),
 		LoopAmount:    v.GetInt("loop.amount"),
 		LoopPeriod:    v.GetDuration("loop.period"),
-		Nombre:        nombre,
-		Apellido:      apellido,
-		Documento:     documento,
-		Nacimiento:    nacimiento,
-		Numero:        numero,
 	}
-
-	log.Infof("action: client_init | result: success | client_id: %v | nombre: %v | apellido: %v | documento: %v | nacimiento: %v | numero: %v",
-		clientConfig.ID,
-		clientConfig.Nombre,
-		clientConfig.Apellido,
-		clientConfig.Documento,
-		clientConfig.Nacimiento,
-		clientConfig.Numero,
-	)
 
 	client := common.NewClient(clientConfig)
 	client.StartClientLoop()
