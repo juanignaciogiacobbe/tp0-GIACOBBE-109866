@@ -36,10 +36,12 @@ func (b *BatchSender) SendBatches(filename string) error {
 	for {
 		record, err := reader.Read()
 		if err != nil {
+			log.Info("DETECTE UN ERROR")
 			if err.Error() == "EOF" {
+				log.Info("FINAL")
+
 				if len(batch) > 0 {
 					err := b.SendBatch(batch, true)
-					log.Info("THE LAST ONE")
 					if err != nil {
 						log.Errorf("action: send_batch | result: fail | client_id: %v | error: %v", b.client.config.ID, err)
 						return err
