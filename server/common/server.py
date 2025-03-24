@@ -168,15 +168,13 @@ class Server:
         
         if first_byte:
             is_last_batch = first_byte == b'\x01'
-            logging.info(f'tengo el last batch indicator {is_last_batch}')
         else:
             is_last_batch = False
 
         while True:
             data = client_sock.recv(8192)  # max 8kB
             if not data:
-                logging.info("NO LEI NADA")
-                break  # No more data
+                break
 
             buffer += data
 
