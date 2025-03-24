@@ -8,7 +8,7 @@ from common.utils import store_bets, Bet, load_bets, has_won
 U8_SIZE = 1
 
 class Server:
-    def __init__(self, port, listen_backlog):
+    def __init__(self, port, listen_backlog, client_count):
         # Initialize server socket
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_socket.bind(('', port))
@@ -16,7 +16,7 @@ class Server:
         self._client_sockets = []
         self._server_socket.settimeout(1)
         self._clients_ready = 0
-        self._total_clients = 5  # Assuming 5 clients in total
+        self._total_clients = client_count
         self._lottery_winners = {}
 
         # Handle SIGTERM signal
