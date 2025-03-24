@@ -257,6 +257,18 @@ Las funciones `load_bets(...)` y `has_won(...)` son provistas por la cátedra y 
 
 No es correcto realizar un broadcast de todos los ganadores hacia todas las agencias, se espera que se informen los DNIs ganadores que correspondan a cada una de ellas.
 
+### Resolución del Ejercicio 7
+
+Para este ejercicio, en un principio de volvio a modificar el script de `clients-generator.py` para poder avisarle al servidor la cantidad de clientes que va a tener por sesion. El protocolo recibio ciertas modificaciones para asegurarnos de cumplir con el requerimiento. Se detalla a continuacion el flujo del protocolo:
+
+1. Antes de enviar un batch, el cliente debe mandar un byte indicando si el batch es el ultimo a procesar o no(esto se indica con un byte al principio del packet: 0 si NO es el ultimo batch, 1 si ES el ultimo batch, y un 2 indicando que ES el ultimo batch pero este no va a contener datos). Se sigue manteniendo la necesidad de recibir un `ACK` del servidor por cada packet que se envia.
+
+2. Cuando la agencia(el cliente) termina de enviar todas sus apuestas, procede a enviar un packet del tipo `FinishBetNotification`, el cual indica que el cliente no va a enviarle mas apuestas al servidor. El servidor va a recibir este packet, y va a esperar a que TODOS los clientes de la sesion(por eso al principio tenemos que pasarle al servidor la cantidad de clientes que van a haber) le envien este packet. Una vez que el servidor recibe una notificacion de todos los clientes de la sesion, realiza el sorteo con las apuestas que tiene(haciendo uso de las funciones `load_bets` y `has_won`), y si se realiza exitosamente, manda el `ACK` de ese packet.
+
+3. El cliente recibe este `ACK`, y procede a mandar un packet consultando por los ganadores para esa agencia. El servidor devuelve la lista de ganadores(el numero de DNI) de los ganadores. 
+
+---
+
 ## Parte 3: Repaso de Concurrencia
 En este ejercicio es importante considerar los mecanismos de sincronización a utilizar para el correcto funcionamiento de la persistencia.
 

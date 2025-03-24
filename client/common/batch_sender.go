@@ -91,11 +91,6 @@ func (b *BatchSender) SendBatches(filename string) error {
 func (b *BatchSender) SendBatch(bets []Bet, controlByte byte) error {
 	data := []byte{}
 
-	// controlByte := byte(0x00)
-	// if isLastBatch {
-	// 	controlByte = byte(0x01) // Mark this batch as the last
-	// }
-
 	data = append(data, controlByte) // First byte of the batch is the control byte
 
 	for _, bet := range bets {
