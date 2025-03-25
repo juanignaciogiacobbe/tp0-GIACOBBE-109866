@@ -2,7 +2,7 @@ import socket
 import logging
 import signal
 import sys
-import threading
+import multiprocessing
 
 from common.utils import store_bets, Bet, load_bets, has_won
 
@@ -30,7 +30,7 @@ class Server:
         # Handle SIGTERM signal
         signal.signal(signal.SIGTERM, self.handle_signal)
 
-        self._barrier = threading.Barrier(client_count, action=self.__perform_lottery)
+        self._barrier = multiprocessing.Barrier(client_count, action=self.__perform_lottery)
 
     def run(self):
         """
@@ -44,8 +44,7 @@ class Server:
                 continue
 
             self._client_sockets.append(client_sock)
-            threading.Thread(target=self.__handle_client_connection, args=(client_sock,)).start()
-            # self.__handle_client_connection(client_sock)
+            multiprocessing.Process(target=self.__handle_client_connection, args=(client_sock, )).start()
 
     def __handle_client_connection(self, client_sock):
         """
