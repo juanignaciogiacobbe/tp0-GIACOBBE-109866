@@ -211,9 +211,7 @@ El protocolo entre el cliente y el servidor se basa en un formato binario que en
 
 Este es un ejemplo de una apuesta serializada:
 
-```
-[length of agency] [agency] [length of first_name] [first_name] ... [length of number] [number]
-```
+![alt text](./assets/bet.png)
 
 El servidor recibe un paquete entrante del cliente, y en caso de que la apuesta es recibida y guardada correctamente, responde con un ACK que es un solo byte (1), indicando que la apuesta fue recibida correctamente.
 
