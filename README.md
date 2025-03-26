@@ -211,9 +211,7 @@ El protocolo entre el cliente y el servidor se basa en un formato binario que en
 
 Este es un ejemplo de una apuesta serializada:
 
-```
-[length of agency] [agency] [length of first_name] [first_name] ... [length of number] [number]
-```
+![alt text](./assets/bet.png)
 
 El servidor recibe un paquete entrante del cliente, y en caso de que la apuesta es recibida y guardada correctamente, responde con un ACK que es un solo byte (1), indicando que la apuesta fue recibida correctamente.
 
@@ -240,7 +238,19 @@ También se sufrieron cambios en el protocolo, y es que no vamos a mandar una so
 
 Se ha creado la estructura `BatchSender`, la cual se encarga de ingerir los datos que hay en el dataset, los parsea en estructuras del tipo `Bet` (definidas en el ejercicio anterior), y serializa los batches. La idea es que no se cargue el dataset entero en memoria, sino que este `BatchSender` vaya leyendo de a batches y enviándolos al servidor. Por cada batch enviado, se queda aguardando el mensaje `ACK` del servidor, también definido en el ejercicio anterior.
 
+El packet de tipo `Batch` luce de la siguiente forma:
+
+![alt text](./assets/Batch.png)
+
+Donde:
+- Las `Bet` mantienen el formato propuesto en el ejercicio 5
+- N queda definido por el valor de `MaxBatchAmount` del clietnt.
+
 Del lado del servidor no se sufrieron tantos cambios, lo único que se debe tener en cuenta es que ahora consume batches de cada cliente, y no las apuestas por separado. Una vez que obtiene las apuestas de un batch correctamente, este se encarga de ejecutar `store_bets` y procede a enviar el mismo `ACK` que enviaba desde el ejercicio anterior.
+
+El mensaje `ACK` que el servidor manda por cada Batch procesado correctamente es un packet con 1 byte de contenido, el cual tiene como valores:
+- 1 si el Batch fue procesado correctamente.
+- 0 Si hubo un error en este proceso del Batch.
 
 ---
 
