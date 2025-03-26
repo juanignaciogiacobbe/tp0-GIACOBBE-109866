@@ -297,9 +297,9 @@ Modificar el servidor para que permita aceptar conexiones y procesar mensajes en
 
 ### Resolución del Ejercicio 8
 
-Para lograr que el servidor procese mensajes en paralelo, se opto por usar un `Barrier` como metodo de sincronizacion entre los distintos clientes. La idea es que el servidor coloque la barrera en el momento en el que esta esperando a que todos los clientes notifiquen que terminaron de mandar sus apuestas. Una vez llegado a ese punto, se procede con el sorteo, y se pasa a procesar las distintas consultas de ganadores de parte de las agencias.
+Para lograr que el servidor procese mensajes en paralelo, se optó por usar un `Barrier` como método de sincronización entre los distintos clientes. La idea es que el servidor coloque la barrera en el momento en el que está esperando a que todos los clientes notifiquen que terminaron de mandar sus apuestas(es el mismo punto de sincronización tratado en el ejercicio anterior). Una vez llegado a ese punto, se procede con el sorteo y se pasan a procesar las distintas consultas de ganadores de parte de las agencias.
 
-Se optó por `multiprocessing` en lugar de `threading` debido a que `multiprocessing` permite la ejecución en paralelo real en varios núcleos de la CPU, lo cual es crucial para aprovechar al máximo el hardware disponible. `Threading` no sería tan efectivo en este caso debido a las limitaciones del GIL de Python, que impide que múltiples hilos ejecuten código Python simultáneamente en diferentes núcleos de la CPU. `Multiprocessing` permite superar esta limitación al tener procesos independientes, cada uno con su propio GIL.
+Se optó por `multiprocessing` en lugar de multithreading(utilizando la libreria `threading`) debido a que `multiprocessing` permite la ejecución en paralelo real en varios núcleos de la CPU, lo cual es crucial para aprovechar al máximo el hardware disponible. `Threading` no sería tan efectivo en este caso debido a las limitaciones del GIL(Global Interpreter Lock) de Python, que impide que múltiples hilos ejecuten código Python simultáneamente en diferentes núcleos de la CPU. `Multiprocessing` permite superar esta limitación al tener procesos independientes, cada uno con su propio GIL(Global Interpreter Lock).
 
 ---
 
