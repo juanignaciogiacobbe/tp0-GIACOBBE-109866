@@ -240,7 +240,7 @@ Se ha creado la estructura `BatchSender`, la cual se encarga de ingerir los dato
 
 El packet de tipo `Batch` luce de la siguiente forma:
 
-![alt text](./assets/batch.png)
+![alt text](./assets/Batch.png)
 
 Donde:
 - Las `Bet` mantienen el formato propuesto en el ejercicio 5
