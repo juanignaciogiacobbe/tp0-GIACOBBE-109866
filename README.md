@@ -269,13 +269,22 @@ No es correcto realizar un broadcast de todos los ganadores hacia todas las agen
 
 ### Resolución del Ejercicio 7
 
-Para este ejercicio, en un principio de volvio a modificar el script de `clients-generator.py` para poder avisarle al servidor la cantidad de clientes que va a tener por sesion. El protocolo recibio ciertas modificaciones para asegurarnos de cumplir con el requerimiento. Se detalla a continuacion el flujo del protocolo:
+Para este ejercicio, en un principio se volvió a modificar el script de `clients-generator.py` para poder avisarle al servidor la cantidad de clientes que va a tener por sesión. El protocolo recibió ciertas modificaciones para asegurarnos de cumplir con el requerimiento. Se detallan los paquetes que van a conformar mi protocolo:
 
-1. Antes de enviar un batch, el cliente debe mandar un byte indicando si el batch es el ultimo a procesar o no(esto se indica con un byte al principio del packet: 0 si NO es el ultimo batch, 1 si ES el ultimo batch, y un 2 indicando que ES el ultimo batch pero este no va a contener datos). Se sigue manteniendo la necesidad de recibir un `ACK` del servidor por cada packet que se envia.
+1. El paquete de tipo `Batch` definido en el ejercicio anterior sufre un cambio: ahora, el primer byte de cada uno de estos paquetes será un `controlByte`, el cual puede tomar 3 valores dependiendo del escenario:
+    - 0 si no se trata del último paquete Batch a enviar.
+    - 1 si se trata del último Batch (pero que contiene apuestas).
+    - 2 si se trata de un Batch que está vacío. Este último valor es útil para el caso en el cual se envía una cantidad total de apuestas que sea múltiplo del valor MaxBatchAmount. Sirve para indicarle en este caso al servidor que no tiene que esperar más paquetes Batch.
 
-2. Cuando la agencia(el cliente) termina de enviar todas sus apuestas, procede a enviar un packet del tipo `FinishBetNotification`, el cual indica que el cliente no va a enviarle mas apuestas al servidor. El servidor va a recibir este packet, y va a esperar a que TODOS los clientes de la sesion(por eso al principio tenemos que pasarle al servidor la cantidad de clientes que van a haber) le envien este packet. Una vez que el servidor recibe una notificacion de todos los clientes de la sesion, realiza el sorteo con las apuestas que tiene(haciendo uso de las funciones `load_bets` y `has_won`), y si se realiza exitosamente, manda el `ACK` de ese packet.
+2. Se mantienen los paquetes de `ACK` que el servidor es capaz de enviar. Esto es con el fin de asegurarnos de que las operaciones a nivel de aplicación se realizan correctamente (como puede ser en nuestro caso, el proceso de los Batches, por ejemplo).
 
-3. El cliente recibe este `ACK`, y procede a mandar un packet consultando por los ganadores para esa agencia. El servidor devuelve la lista de ganadores(el numero de DNI) de los ganadores. 
+3. Se tiene un `NotifyBetsEndPacket`, el cual consiste en un paquete de un byte (con valor 1) que va a indicarle al servidor que el cliente no va a enviar más apuestas. Más adelante se detalla el fin de este paquete.
+
+4. Se tiene un `QueryWinnersPacket`, el cual va a contener 2 bytes: uno indicando el tipo de operación (en este caso, definiendo que tenga el valor 2 para diferenciarlo del paquete anterior), y el otro indicará la agencia que está pidiendo sus ganadores.
+
+5. El servidor, ante el mensaje anterior, responde con un paquete del tipo `WinnersPacket`, el cual va a contener a todos los ganadores del sorteo para la agencia que los solicitó.
+
+Una vez que el cliente termina de enviar sus batches, procede a enviar un `NotifyBetsEnd`, el cual le indica al servidor que no debe esperar más apuestas de parte de ese cliente. Este ejercicio tiene como punto de sincronización el momento en el cual todos los clientes notifican al servidor de que no van a enviar más apuestas al mismo, por lo que el servidor va a esperar a recibir estas notificaciones de parte de todos los clientes para poder proceder con el sorteo (el cual se realiza utilizando las funciones provistas por la cátedra). Una vez que el servidor recibe todas las notificaciones de los clientes, queda aguardando por los pedidos de ganadores de parte de las agencias (es decir, esperan a recibir un QueryWinnersPacket de parte de los clientes). A continuación, envía los ganadores a los clientes que los pidan y realiza el logging correspondiente de las operaciones.
 
 ---
 
