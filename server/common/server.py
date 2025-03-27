@@ -164,9 +164,6 @@ class Server:
 
         except Exception as e:
             logging.error(f'action: query_winners | result: fail | error: {e}')
-        finally:
-            client_sock.close()
-            logging.info(f"action: close_client_conn | result: success | ip: {client_sock.getpeername()[0]}")
 
 
     def __receive_batch(self, client_sock):
