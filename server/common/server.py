@@ -6,6 +6,10 @@ import multiprocessing
 
 from common.utils import store_bets, Bet, load_bets, has_won
 
+MAX_BATCH_SIZE_BYTES = 8192
+QUERY_WINNERS_PACKET_SIZE_BYTES = 2
+NOTIFY_PACKET_SIZE_BYTES = 1
+CONTROL_BYTE_SIZE_BYTES = 1
 U8_SIZE = 1
 
 NOTIFY_PACKET_FLAG = b'\x01' 
@@ -85,7 +89,7 @@ class Server:
         """
         try:
             # Receive a 1-byte packet indicating the client has finished
-            notify_packet = client_sock.recv(1) 
+            notify_packet = client_sock.recv(NOTIFY_PACKET_SIZE_BYTES) 
             if notify_packet == NOTIFY_PACKET_FLAG:
                 logging.info(f'action: client_finish_notify | result: success | client_ip: {client_sock.getpeername()[0]}')
                 self._barrier.wait()
@@ -149,7 +153,7 @@ class Server:
         When it receives a query request, it sends the winners of that client's agency.
         """
         try:
-            query_packet = client_sock.recv(2)  # Expecting 2 bytes for the query
+            query_packet = client_sock.recv(QUERY_WINNERS_PACKET_SIZE_BYTES)  # Expecting 2 bytes for the query
             if query_packet[0] == QUERY_WINNERS_FLAG:  # Query for winners
                 agency_id = query_packet[1]
                 logging.info(f'action: query_winners | result: success | client_ip: {client_sock.getpeername()[0]} | agency_id: {agency_id}')
@@ -176,7 +180,7 @@ class Server:
         batch = []
 
         # Read the first byte of the batch to check if it's the last batch (0x01 means last, 0x00 means not last)
-        first_byte = client_sock.recv(1)
+        first_byte = client_sock.recv(CONTROL_BYTE_SIZE_BYTES)
 
         if first_byte == EMPTY_BATCH_FLAG:
             return [], False  
@@ -187,7 +191,7 @@ class Server:
             is_last_batch = False
 
         while True:
-            data = client_sock.recv(8192)  # max 8kB
+            data = client_sock.recv(MAX_BATCH_SIZE_BYTES)  # max 8kB
             if not data:
                 break
 
@@ -209,7 +213,7 @@ class Server:
                     bet_values.clear()
                     bet_fields = ['agency', 'first_name', 'last_name', 'document', 'birthdate', 'number']
 
-            if len(data) < 8192:
+            if len(data) < MAX_BATCH_SIZE_BYTES:
                 break
 
         return batch, is_last_batch
