@@ -89,12 +89,15 @@ func (c *Client) StartClient() {
 	err = batchSender.SendBatches("./agency.csv")
 	if err != nil {
 		log.Errorf("action: send_bets | result: fail | client_id: %v | error: %v", c.config.ID, err)
+		c.CloseClientSocket()
+		return
 	}
 
 	// Notify the server that the client has finished sending bets
 	err = c.notifyBetsEnd()
 	if err != nil {
 		log.Errorf("action: notify_bets_end | result: fail | client_id: %v | error: %v", c.config.ID, err)
+		c.CloseClientSocket()
 		return
 	}
 
@@ -102,6 +105,7 @@ func (c *Client) StartClient() {
 	err = c.waitForLotteryConfirmation()
 	if err != nil {
 		log.Errorf("action: wait_for_lottery_confirmation | result: fail | client_id: %v | error: %v", c.config.ID, err)
+		c.CloseClientSocket()
 		return
 	}
 
@@ -111,7 +115,12 @@ func (c *Client) StartClient() {
 		log.Errorf("action: query_winners | result: fail | client_id: %v | error: %v", c.config.ID, err)
 	}
 
-	err = c.conn.Close()
+	c.CloseClientSocket()
+}
+
+// CloseClientSocket closes the Client Socket
+func (c *Client) CloseClientSocket() {
+	err := c.conn.Close()
 	if err != nil {
 		log.Errorf("action: close_client_socket | result: fail | client_id: %v | error: %v", c.config.ID, err)
 	} else {
