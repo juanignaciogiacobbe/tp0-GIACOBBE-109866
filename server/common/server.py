@@ -5,6 +5,7 @@ import sys
 
 from common.utils import store_bets, Bet
 
+MAX_BATCH_SIZE_BYTES = 8192
 U8_SIZE = 1
 
 class Server:
@@ -90,7 +91,7 @@ class Server:
 
         while True:
             # Receive data in chunks (short read handling)
-            data = client_sock.recv(8192)  # max 8kB
+            data = client_sock.recv(MAX_BATCH_SIZE_BYTES)  # max 8kB
             if not data:
                 break  
 
@@ -112,7 +113,7 @@ class Server:
                     bet_values.clear()
                     bet_fields = ['agency', 'first_name', 'last_name', 'document', 'birthdate', 'number']
 
-            if len(data) < 8192:
+            if len(data) < MAX_BATCH_SIZE_BYTES:
                 break
 
         return batch
