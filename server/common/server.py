@@ -54,6 +54,7 @@ class Server:
             self._client_sockets.append(client_sock)
             multiprocessing.Process(target=self.__handle_client_connection, args=(client_sock, )).start()
 
+
     def __handle_client_connection(self, client_sock):
         """
         Reads and processes messages from a specific client socket until it receives the last batch.
@@ -165,6 +166,7 @@ class Server:
             logging.error(f'action: query_winners | result: fail | error: {e}')
         finally:
             client_sock.close()
+            logging.info(f"action: close_client_conn | result: success | ip: {client_sock.getpeername()[0]}")
 
 
     def __receive_batch(self, client_sock):
