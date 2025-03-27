@@ -31,10 +31,14 @@ class Server:
         self._total_clients = client_count
         self._lottery_winners = {}
 
+        self.manager = multiprocessing.Manager()
+        self._lottery_winners = self.manager.dict()
+
         # Handle SIGTERM signal
         signal.signal(signal.SIGTERM, self.handle_signal)
 
         self._barrier = multiprocessing.Barrier(client_count, action=self.__perform_lottery)
+        self._lottery_done = multiprocessing.Event()
 
     def run(self):
         """
@@ -81,6 +85,13 @@ class Server:
         # Wait for the notification from the client that it is done sending bets
         self.__wait_for_finish(client_sock)
 
+        self._lottery_done.wait()
+
+        try:
+            self.__send_ack(client_sock, True)
+            self.__handle_winner_queries(client_sock)
+        except OSError as e:
+            logging.error(f'action: send_notification | result: fail | error: {e}')
 
     def __wait_for_finish(self, client_sock):
         """
@@ -115,20 +126,9 @@ class Server:
                     winners[bet.agency] = []
                 winners[bet.agency].append(bet.document)
 
-        self._lottery_winners = winners
+        self._lottery_winners.update(winners)
         logging.info("action: sorteo | result: success") 
-        self.__notify_clients_about_lottery()
-
-    def __notify_clients_about_lottery(self):
-        """
-        Sends the lottery result to each client after the lottery is completed.
-        """
-        for client_sock in self._client_sockets:
-            try:
-                self.__send_ack(client_sock, True)
-                self.__handle_winner_queries(client_sock)
-            except OSError as e:
-                logging.error(f'action: send_notification | result: fail | error: {e}')
+        self._lottery_done.set()
 
 
     def __send_winners(self, client_sock, agency_id):
@@ -139,7 +139,7 @@ class Server:
         winners = self._lottery_winners.get(agency_id, [])
         
         winners_message = ",".join(winners) if winners else "0"
-        
+
         try:
             client_sock.send(winners_message.encode())
             logging.info(f"action: send_winners | result: success | agencia: {agency_id} | ganadores: {winners_message}")
