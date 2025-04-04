@@ -93,6 +93,14 @@ class Server:
             self.__handle_winner_queries(client_sock)
         except OSError as e:
             logging.error(f'action: send_notification | result: fail | error: {e}')
+        finally:
+            try:
+                client_sock.close()
+                logging.info(f'action: close_client_conn | result: success | ip: {addr[0]}')
+            except OSError as e:
+                logging.error(f'action: close_client_conn | result: fail | error: {e}')
+
+
 
     def __wait_for_finish(self, client_sock):
         """
