@@ -37,6 +37,11 @@ class Server:
         # Handle SIGTERM signal
         signal.signal(signal.SIGTERM, self.handle_signal)
 
+        self.locks = {
+            'store_bets': self.manager.Lock(),
+            'load_bets': self.manager.Lock()
+        }
+
         self._barrier = multiprocessing.Barrier(client_count, action=self.__perform_lottery)
         self._lottery_done = multiprocessing.Event()
 
@@ -70,7 +75,9 @@ class Server:
                     logging.info(f'action: finish_batches_reading | result: success | ip: {addr[0]}')
                     break
 
-                store_bets(batch)
+                with self.locks['store_bets']:
+                    store_bets(batch)
+
                 self.__send_ack(client_sock, True)
                 logging.info(f'action: apuesta_recibida | result: success | cantidad: {len(batch)}')
 
@@ -126,7 +133,8 @@ class Server:
         """
         logging.info("action: performing_lottery | result: in_progress")
 
-        all_bets = load_bets()
+        with self.locks['load_bets']:
+            all_bets = load_bets()
 
         winners = {}
         for bet in all_bets:
