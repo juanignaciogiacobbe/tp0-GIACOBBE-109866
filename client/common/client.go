@@ -152,11 +152,18 @@ func (c *Client) HandleSignal(sigs chan os.Signal) {
 // It sends a 1-byte packet (NotifyBetsEnd) to signal the completion.
 func (c *Client) notifyBetsEnd() error {
 	notifyPacket := []byte{notifyPacketFlag}
-	_, err := c.conn.Write(notifyPacket)
-	if err != nil {
-		log.Errorf("action: notify_bets_end | result: fail | client_id: %v | error: %v", c.config.ID, err)
-		return err
+	totalSent := 0
+	notifyPacketLength := len(notifyPacket)
+
+	for totalSent < notifyPacketLength {
+		sent, err := c.conn.Write(notifyPacket[totalSent:])
+		if err != nil {
+			log.Errorf("action: notify_bets_end | result: fail | client_id: %v | error: write error: %v", c.config.ID, err)
+			return err
+		}
+		totalSent += sent
 	}
+
 	log.Infof("action: notify_bets_end | result: success | client_id: %v", c.config.ID)
 	return nil
 }
@@ -165,14 +172,23 @@ func (c *Client) notifyBetsEnd() error {
 // The server must respond with a confirmation message once all agencies have notified the completion of their bets.
 func (c *Client) waitForLotteryConfirmation() error {
 	// Wait for the server to confirm the lottery
-	confirmationPacket := make([]byte, 1)
-	_, err := c.conn.Read(confirmationPacket)
-	if err != nil {
-		log.Errorf("action: wait_for_lottery_confirmation | result: fail | client_id: %v | error: %v", c.config.ID, err)
-		return err
+	var confirmationPacket []byte
+	buf := make([]byte, 1)
+
+	for {
+		n, err := c.conn.Read(buf)
+		if err != nil {
+			log.Errorf("action: wait_for_lottery_confirmation | result: fail | client_id: %v | error: read error: %v", c.config.ID, err)
+			return err
+		}
+
+		confirmationPacket = append(confirmationPacket, buf[:n]...)
+
+		if len(confirmationPacket) == 1 {
+			break
+		}
 	}
 
-	// Check if the server has confirmed with a success code
 	if confirmationPacket[0] == successCode {
 		log.Infof("action: lottery_confirmation | result: success | client_id: %v", c.config.ID)
 		return nil
@@ -190,20 +206,36 @@ func (c *Client) QueryWinners() error {
 		return err
 	}
 
-	// Send the packet type byte (0x02) and the agency ID byte
 	queryPacket := []byte{queryWinnersPacketFlag, byte(agencyID)}
-	_, err = c.conn.Write(queryPacket)
-	if err != nil {
-		return err
+	totalSent := 0
+	queryPacketLength := len(queryPacket)
+
+	for totalSent < queryPacketLength {
+		sent, err := c.conn.Write(queryPacket[totalSent:])
+		if err != nil {
+			log.Errorf("action: query_winners | result: fail | error: write error: %v", err)
+			return err
+		}
+		totalSent += sent
 	}
 
-	winners_data := make([]byte, 1024)
-	n, err := c.conn.Read(winners_data)
-	if err != nil {
-		return err
+	var winners_data []byte
+	for {
+		buf := make([]byte, 1024)
+		n, err := c.conn.Read(buf)
+		if err != nil {
+			log.Errorf("action: query_winners | result: fail | error: read error: %v", err)
+			return err
+		}
+
+		winners_data = append(winners_data, buf[:n]...)
+
+		if n < len(buf) {
+			break
+		}
 	}
 
-	winners := string(winners_data[:n])
+	winners := string(winners_data)
 	if winners == "0" {
 		log.Infof("action: consulta_ganadores | result: success | cant_ganadores: 0")
 		return nil

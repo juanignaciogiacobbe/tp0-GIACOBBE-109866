@@ -117,10 +117,15 @@ func (b *BatchSender) SendBatch(bets []Bet, controlByte byte) error {
 
 	// Wait for the server's acknowledgment (ACK)
 	ack := make([]byte, 1) // Expecting 1 byte from the server
-	_, err := b.client.conn.Read(ack)
-	if err != nil {
-		log.Errorf("action: wait_for_ack | result: fail | client_id: %v | error: %v", b.client.config.ID, err)
-		return err
+	totalRead := 0
+
+	for totalRead < 1 {
+		n, err := b.client.conn.Read(ack[totalRead:])
+		if err != nil {
+			log.Errorf("action: wait_for_ack | result: fail | client_id: %v | error: %v", b.client.config.ID, err)
+			return err
+		}
+		totalRead += n
 	}
 
 	if ack[0] == 1 {
