@@ -45,19 +45,32 @@ class Server:
         self._barrier = multiprocessing.Barrier(client_count, action=self.__perform_lottery)
         self._lottery_done = multiprocessing.Event()
 
+        self._processes = []
+
     def run(self):
         """
         Server that accepts new connections and establishes a communication with a client.
         After communication finishes, the server starts to accept new connections again.
         """
-        while True:
+        while len(self._processes) < self._total_clients:
             try:
                 client_sock = self.__accept_new_connection()
             except socket.timeout:
                 continue
 
             self._client_sockets.append(client_sock)
-            multiprocessing.Process(target=self.__handle_client_connection, args=(client_sock, )).start()
+            client_process = multiprocessing.Process(target=self.__handle_client_connection, args=(client_sock, ))
+            self._processes.append(client_process)
+            client_process.start()
+
+        logging.info(f"action: all_processes_spawned | result: success | total_clients: {self._total_clients}")
+
+        # Wait for all child processes to finish
+        for process in self._processes:
+            process.join()
+            logging.debug(f'action: join_process | result: success')
+
+        logging.info("action: all_processes_finished | result: success")
 
 
     def __handle_client_connection(self, client_sock):
@@ -108,15 +121,20 @@ class Server:
                 logging.error(f'action: close_client_conn | result: fail | error: {e}')
 
 
-
     def __wait_for_finish(self, client_sock):
         """
         Wait for the notification from the client that it has finished sending all bets.
         This method listens for a 1-byte packet (NotifyBetsEnd) to signal the completion.
         """
         try:
-            # Receive a 1-byte packet indicating the client has finished
-            notify_packet = client_sock.recv(NOTIFY_PACKET_SIZE_BYTES) 
+            notify_packet = b""
+            while len(notify_packet) < NOTIFY_PACKET_SIZE_BYTES:
+                data = client_sock.recv(NOTIFY_PACKET_SIZE_BYTES - len(notify_packet))
+                if not data:
+                    raise Exception("Connection closed or invalid data received")
+
+                notify_packet += data
+
             if notify_packet == NOTIFY_PACKET_FLAG:
                 logging.info(f'action: client_finish_notify | result: success | client_ip: {client_sock.getpeername()[0]}')
                 self._barrier.wait()
@@ -156,9 +174,17 @@ class Server:
         winners = self._lottery_winners.get(agency_id, [])
         
         winners_message = ",".join(winners) if winners else "0"
+        encoded_message = winners_message.encode()
+
+        total_sent = 0
+        message_length = len(encoded_message)
 
         try:
-            client_sock.send(winners_message.encode())
+            while total_sent < message_length:
+                sent = client_sock.send(encoded_message[total_sent:])
+                if sent == 0:
+                    raise RuntimeError("socket connection broken")
+                total_sent += sent
             logging.info(f"action: send_winners | result: success | agencia: {agency_id} | ganadores: {winners_message}")
         except OSError as e:
             logging.error(f'action: send_winners | result: fail | agency: {agency_id} | error: {e}')
@@ -170,8 +196,16 @@ class Server:
         When it receives a query request, it sends the winners of that client's agency.
         """
         try:
-            query_packet = client_sock.recv(QUERY_WINNERS_PACKET_SIZE_BYTES)  # Expecting 2 bytes for the query
-            if query_packet[0] == QUERY_WINNERS_FLAG:  # Query for winners
+            query_packet = b""
+
+            while len(query_packet) < QUERY_WINNERS_PACKET_SIZE_BYTES:
+                data = client_sock.recv(QUERY_WINNERS_PACKET_SIZE_BYTES - len(query_packet))
+                if not data:
+                    raise Exception("Connection closed or invalid data received")
+
+                query_packet += data
+
+            if query_packet[0] == QUERY_WINNERS_FLAG:  
                 agency_id = query_packet[1]
                 logging.info(f'action: query_winners | result: success | client_ip: {client_sock.getpeername()[0]} | agency_id: {agency_id}')
                 self.__send_winners(client_sock, agency_id)
@@ -180,6 +214,15 @@ class Server:
 
         except Exception as e:
             logging.error(f'action: query_winners | result: fail | error: {e}')
+
+    def recv_exact(self, sock, num_bytes):
+        data = b''
+        while len(data) < num_bytes:
+            chunk = sock.recv(num_bytes - len(data))
+            if not chunk:
+                raise ConnectionError("Connection closed or invalid data received")
+            data += chunk
+        return data
 
 
     def __receive_batch(self, client_sock):
@@ -195,15 +238,15 @@ class Server:
         batch = []
 
         # Read the first byte of the batch to check if it's the last batch (0x01 means last, 0x00 means not last)
-        first_byte = client_sock.recv(CONTROL_BYTE_SIZE_BYTES)
+        control_byte = self.recv_exact(client_sock, CONTROL_BYTE_SIZE_BYTES)
 
-        if first_byte == EMPTY_BATCH_FLAG:
+        if control_byte == EMPTY_BATCH_FLAG:
             return [], False  
         
-        if first_byte:
-            is_last_batch = first_byte == LAST_BATCH_FLAG
-        else:
-            is_last_batch = False
+        if control_byte not in (b'\x00', LAST_BATCH_FLAG):
+            raise ValueError(f"Invalid control byte received: {control_byte!r}")
+        
+        is_last_batch = control_byte == LAST_BATCH_FLAG
 
         while True:
             data = client_sock.recv(MAX_BATCH_SIZE_BYTES)  # max 8kB
@@ -212,13 +255,16 @@ class Server:
 
             buffer += data
 
-            while len(buffer) >= U8_SIZE:
-                len_data = int.from_bytes(buffer[:U8_SIZE], byteorder='big')
-                buffer = buffer[U8_SIZE:]
-
-                if len(buffer) < len_data:
+            while True:
+                if len(buffer) < U8_SIZE:
                     break
 
+                len_data = int.from_bytes(buffer[:U8_SIZE], byteorder='big')
+
+                if len(buffer) < U8_SIZE + len_data:
+                    break
+
+                buffer = buffer[U8_SIZE:]
                 field_data, buffer = buffer[:len_data], buffer[len_data:]
                 field_name = bet_fields.pop(0)
                 bet_values[field_name] = field_data.decode('utf-8')
@@ -228,6 +274,7 @@ class Server:
                     bet_values.clear()
                     bet_fields = ['agency', 'first_name', 'last_name', 'document', 'birthdate', 'number']
 
+
             if len(data) < MAX_BATCH_SIZE_BYTES:
                 break
 
@@ -235,13 +282,24 @@ class Server:
 
     def __send_ack(self, client_sock, success=True):
         """
-        Sends an acknowledgment (ACK) message to client.
+        Sends an acknowledgment (ACK) message to the client.
         This method sends a message containing the value `1` (success) or `0` (failure) to the client,
         indicating whether the batch was successfully processed.
         """
+        ack_message = ACK_SUCCESS if success else ACK_FAILED
+        total_sent = 0
+        message_len = len(ack_message)
+
         try:
-            ack_message = ACK_SUCCESS if success else ACK_FAILED
-            client_sock.send(ack_message)
+            # Handle short writes by ensuring that we send all the data
+            while total_sent < message_len:
+                sent = client_sock.send(ack_message[total_sent:])
+                if sent == 0:
+                    raise RuntimeError("socket connection broken")
+                total_sent += sent
+
+            logging.info(f"action: send_ack | result: success | ack_message: {ack_message}")
+
         except OSError as e:
             logging.error(f'action: send_ack | result: fail | error: {e}')
 
@@ -262,6 +320,10 @@ class Server:
                 logging.info(f'action: close_client_conn | result: success | ip: {client_socket.getpeername()[0]}')
             except OSError as e:
                 logging.error(f'action: close_client_conn | result: fail | error: {e}')
+        
+        for process in self._processes:
+            process.join()
+            logging.debug(f'action: join process | result: success')
 
         try:
             self._server_socket.close()
