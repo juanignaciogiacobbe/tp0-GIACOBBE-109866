@@ -288,7 +288,7 @@ class Server:
                     raise RuntimeError("socket connection broken")
                 total_sent += sent
 
-            logging.info(f"action: send_ack | result: success | ack_message: {ack_message}")
+            logging.debug(f"action: send_ack | result: success | ack_message: {ack_message}")
 
         except OSError as e:
             logging.error(f'action: send_ack | result: fail | error: {e}')
@@ -319,9 +319,23 @@ class Server:
 
 
     def __cleanup_processes(self):
+        """
+        Cleans up all child processes and client connections before shutting down the server.
+        This method ensures that all forked child processes are properly joined to prevent
+        zombie processes, and that all active client sockets are closed gracefully.
+
+        For each process in the process list, it waits for completion using `join()`, logging
+        the result. Then, it attempts to close each client socket, logging both successes and
+        failures. If the peer IP address cannot be obtained (e.g., if the socket is already
+        disconnected), it defaults to 'unknown'.
+
+        Finally, it attempts to close the main server socket again as an extra safeguard,
+        even if it might have already been closed during signal handling. Any errors encountered
+        during socket closure are logged.
+        """
         for process in self._processes:
             process.join()
-            logging.debug(f'action: join_process | result: success')
+            logging.info(f'action: join_process | result: success')
 
         for client_socket in self._client_sockets:
             try:
