@@ -291,7 +291,6 @@ class Server:
         message_len = len(ack_message)
 
         try:
-            # Handle short writes by ensuring that we send all the data
             while total_sent < message_len:
                 sent = client_sock.send(ack_message[total_sent:])
                 if sent == 0:
