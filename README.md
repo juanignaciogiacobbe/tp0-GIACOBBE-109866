@@ -303,6 +303,20 @@ Se optó por `multiprocessing` en lugar de multithreading(utilizando la libreria
 
 ---
 
+## Correcciones para la Reentrega
+Paso a detallar el paquete de correcciones que construí para la reentrega del trabajo práctico:
+1. En primer lugar, se hace uso de `Locks` a la hora de utilizar las funciones que no son process safe brindadas por la cátedra(en este caso se trata de las funciones `store_bets` y `load_bets`).
+
+2. El servidor ahora no queda corriendo en un loop infinito, sino que cuando recibe la cantidad de clientes que está esperando, sale de ese loop que espera conexiones, y pasa a esperar a que todos los procesos spawneados para manejar a los clientes terminen(se queda en una sentencia `join`). La idea es que cuando termina la ejecución de todos los procesos, se pase con la limpieza y cierre de recursos, como los mismos procesos y los sockets para cada cliente(además del socket que expone el server obviamente).
+
+3. Se realiza una corrección en los métodos `__wait_for_finish`, `__send_winners`, `__receive_batch` y `__send_ack` dentro del servidor para evitar casos de short-reads y short-writes en caso de ser necesario. En el cliente también se realiza una serie de modificaciones en los métodos  `notifyBetsEnd`, `waitForLotteryConfirmation`, `QueryWinners` y de `SendBatch`(esto en el módulo del batch_sender) para también evitar short-reads y short-writes.
+
+4. En `__receive_batch` dentro del servidor, se deja de descartar las longitudes de cada uno de los campos enviados dentro del batch, con el fin de evitar un short-read en caso de que justamente ese byte se descarte. También, se realizó un chequeo para el `controlByte` para que también se eviten short-reads en este caso.
+
+5. En el método `__cleanup_processes` se están cerrando los sockets de los clientes.
+
+---
+
 ## Condiciones de Entrega
 Se espera que los alumnos realicen un _fork_ del presente repositorio para el desarrollo de los ejercicios y que aprovechen el esqueleto provisto tanto (o tan poco) como consideren necesario.
 
