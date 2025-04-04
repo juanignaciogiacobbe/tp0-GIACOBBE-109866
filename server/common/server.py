@@ -1,8 +1,8 @@
 import socket
 import logging
 import signal
-import sys
 import multiprocessing
+import sys
 
 from common.utils import store_bets, Bet, load_bets, has_won
 
@@ -44,6 +44,7 @@ class Server:
 
         self._barrier = multiprocessing.Barrier(client_count, action=self.__perform_lottery)
         self._lottery_done = multiprocessing.Event()
+        self._terminated = multiprocessing.Event()
 
         self._processes = []
 
@@ -52,11 +53,17 @@ class Server:
         Server that accepts new connections and establishes a communication with a client.
         After communication finishes, the server starts to accept new connections again.
         """
-        while len(self._processes) < self._total_clients:
+        while len(self._processes) < self._total_clients and not self._terminated.is_set():
             try:
                 client_sock = self.__accept_new_connection()
             except socket.timeout:
                 continue
+            except OSError as e:
+                if self._terminated.is_set():
+                    break 
+                else:
+                    logging.error(f"action: accept_new_connection | result: fail | error: {e}")
+                    continue
 
             self._client_sockets.append(client_sock)
             client_process = multiprocessing.Process(target=self.__handle_client_connection, args=(client_sock, ))
@@ -66,11 +73,7 @@ class Server:
         logging.info(f"action: all_processes_spawned | result: success | total_clients: {self._total_clients}")
 
         # Wait for all child processes to finish
-        for process in self._processes:
-            process.join()
-            logging.debug(f'action: join_process | result: success')
-
-        logging.info("action: all_processes_finished | result: success")
+        self.__cleanup_processes()
 
 
     def __handle_client_connection(self, client_sock):
@@ -78,6 +81,12 @@ class Server:
         Reads and processes messages from a specific client socket until it receives the last batch.
         The connection is then closed after receiving all the bets and an acknowledgment is sent.
         """
+        def handle_sigterm(signum, frame):
+            logging.warning("action: sigterm_received | result: processing")
+            client_sock.close()
+            logging.info("action: sigterm_received | result: sucess")
+
+        signal.signal(signal.SIGTERM, handle_sigterm)
         addr = client_sock.getpeername()
 
         while True:
@@ -113,12 +122,7 @@ class Server:
             self.__handle_winner_queries(client_sock)
         except OSError as e:
             logging.error(f'action: send_notification | result: fail | error: {e}')
-        finally:
-            try:
-                client_sock.close()
-                logging.info(f'action: close_client_conn | result: success | ip: {addr[0]}')
-            except OSError as e:
-                logging.error(f'action: close_client_conn | result: fail | error: {e}')
+
 
 
     def __wait_for_finish(self, client_sock):
@@ -127,13 +131,7 @@ class Server:
         This method listens for a 1-byte packet (NotifyBetsEnd) to signal the completion.
         """
         try:
-            notify_packet = b""
-            while len(notify_packet) < NOTIFY_PACKET_SIZE_BYTES:
-                data = client_sock.recv(NOTIFY_PACKET_SIZE_BYTES - len(notify_packet))
-                if not data:
-                    raise Exception("Connection closed or invalid data received")
-
-                notify_packet += data
+            notify_packet = self.recv_exact(client_sock, NOTIFY_PACKET_SIZE_BYTES)
 
             if notify_packet == NOTIFY_PACKET_FLAG:
                 logging.info(f'action: client_finish_notify | result: success | client_ip: {client_sock.getpeername()[0]}')
@@ -196,14 +194,7 @@ class Server:
         When it receives a query request, it sends the winners of that client's agency.
         """
         try:
-            query_packet = b""
-
-            while len(query_packet) < QUERY_WINNERS_PACKET_SIZE_BYTES:
-                data = client_sock.recv(QUERY_WINNERS_PACKET_SIZE_BYTES - len(query_packet))
-                if not data:
-                    raise Exception("Connection closed or invalid data received")
-
-                query_packet += data
+            query_packet = self.recv_exact(client_sock, QUERY_WINNERS_PACKET_SIZE_BYTES)
 
             if query_packet[0] == QUERY_WINNERS_FLAG:  
                 agency_id = query_packet[1]
@@ -311,18 +302,41 @@ class Server:
         during the closing of the sockets are logged. Once all resources
         have been closed, the server process exits.
         """
-        logging.info('action: close_clients_conn | result: in_progress')
+        logging.info('action: sigterm_handling | result: in_progress')
+
+        try:
+            self._server_socket.close()
+            logging.info("action: close_server_socket | result: success")
+        except OSError as e:
+            logging.error(f"action: close_server_socket | result: fail | error: {e}")
+
+        for process in self._processes:
+            if process.is_alive():
+                process.terminate()
+                logging.warning(f"action: terminate_process | result: success | pid: {process.pid}")
+            
+        self._terminated.set()
+
+
+    def __cleanup_processes(self):
+        for process in self._processes:
+            process.join()
+            logging.debug(f'action: join_process | result: success')
 
         for client_socket in self._client_sockets:
             try:
+                ip = 'unknown'
+                try:
+                    ip = client_socket.getpeername()[0]
+                except OSError:
+                    pass
+
                 client_socket.close()
-                logging.info(f'action: close_client_conn | result: success | ip: {client_socket.getpeername()[0]}')
+                logging.info(f'action: close_client_conn | result: success | ip: {ip}')
             except OSError as e:
                 logging.error(f'action: close_client_conn | result: fail | error: {e}')
-        
-        for process in self._processes:
-            process.join()
-            logging.debug(f'action: join process | result: success')
+
+        self._client_sockets.clear()
 
         try:
             self._server_socket.close()
@@ -330,7 +344,6 @@ class Server:
         except OSError as e:
             logging.error(f'action: close_server_socket | result: fail | error: {e}')
 
-        sys.exit(0)
 
     def __accept_new_connection(self):
         """
